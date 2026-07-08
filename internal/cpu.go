@@ -25,33 +25,126 @@ type CPUStat struct {
 }
 
 // return how many total logical cpus are there
-func CountCPU() {
+func CountCPU() (int, int, error) {
 	file, err := os.Open(statFilePath)
 	if err != nil {
-		log.Fatalf("error reading the file:", err)
+		return 0, 0, fmt.Errorf("error reading the file: %v", err)
 	}
+
+	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 
-	buf := make([]byte, 0, 8*1024)
-	scanner.Buffer(buf, 1024*1024)
+	cpuCount := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Fields(line)
 
-	n := 0
-	n = n + 1
+		if len(parts) == 0 {
+			continue
+		}
+		if parts[0] == "cpu" {
+			continue
+		}
+		if parts[0] == "intr" {
+			break
+		}
+		if strings.HasPrefix(parts[0], "cpu") {
+			cpuCount++
+		}
+
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, 0, fmt.Errorf("error encountered during scanning: %v", err)
+	}
+
+	return cpuCount / 2, cpuCount, nil
+}
+
+// return system-wide CPU
+func ShowCPUstat() (CPUStat, error) {
+	file, err := os.Open(statFilePath)
+	if err != nil {
+		return CPUStat{}, fmt.Errorf("error reading the file: %v", err)
+	}
+
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+
+	systemCPUStat := CPUStat{}
+
+	for scanner.Scan() {
+		lines := scanner.Text()
+		parts := strings.Fields(lines)
+
+		var cpu string
+
+		if parts[0] == "cpu" {
+			count, err := fmt.Sscanf(lines, "%s %f %f %f %f %f %f %f %f %f %f",
+				&cpu,
+				&systemCPUStat.userTime, &systemCPUStat.niceTime, &systemCPUStat.systemTime, &systemCPUStat.idleTime,
+				&systemCPUStat.ioWaitTime, &systemCPUStat.irqTime, &systemCPUStat.softIRQTime, &systemCPUStat.stealTime,
+				&systemCPUStat.guestTime, &systemCPUStat.guestNiceTime)
+			if err != nil {
+				return CPUStat{}, fmt.Errorf("Error: %v", err)
+			}
+			if count == 0 {
+				return CPUStat{}, fmt.Errorf("Error: %v", err)
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return CPUStat{}, fmt.Errorf("error encountered during scanning: %v", err)
+	}
+
+	return systemCPUStat, nil
+}
+
+// return per CPU metrics
+func ShowPerCpuStat() error {
+	file, err := os.Open(statFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading the file: %v", err)
+	}
+
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Fields(line)
 
-		n = n + 1
+		var cpu string
+		systemCPUStat := CPUStat{}
 
+		if len(parts) == 0 {
+			continue
+		}
 		if parts[0] == "intr" {
 			break
 		}
+		if strings.HasPrefix(parts[0], "cpu") {
+			count, err := fmt.Sscanf(line, "%s %f %f %f %f %f %f %f %f %f %f",
+				&cpu,
+				&systemCPUStat.userTime, &systemCPUStat.niceTime, &systemCPUStat.systemTime, &systemCPUStat.idleTime,
+				&systemCPUStat.ioWaitTime, &systemCPUStat.irqTime, &systemCPUStat.softIRQTime, &systemCPUStat.stealTime,
+				&systemCPUStat.guestTime, &systemCPUStat.guestNiceTime)
+			if err != nil {
+				return fmt.Errorf("Error: %v", err)
+			}
+			if count == 0 {
+				fmt.Println("stats not found")
+			}
+
+			fmt.Println(systemCPUStat)
+		}
 	}
 
-	fmt.Printf("Total number of CPU are %d\nTotal number of Logical CPU are %d\n", (n/2)-1, n-2)
-}
+	if err := scanner.Err(); err != nil {
+		log.Fatalf("error encountered during scanning: %v", err)
+	}
 
-//return system-wide CPU and per CPU stat values
-// func showCPUstat{}
+	return nil
+}
