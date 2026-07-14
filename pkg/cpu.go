@@ -4,11 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"log"
-	"os"
 	"strings"
-)
 
-var statFilePath = "/proc/stat"
+	filesystem "github.com/vak-rashu/metrics-go/internal"
+)
 
 type CPUStat struct {
 	cpu           string
@@ -26,7 +25,10 @@ type CPUStat struct {
 
 // return how many total logical cpus are there
 func CountCPU() (int, int, error) {
-	file, err := os.Open(statFilePath)
+
+	path := filesystem.Path("stat")
+	file, err := filesystem.OpenPath(path)
+
 	if err != nil {
 		return 0, 0, fmt.Errorf("error reading the file: %v", err)
 	}
@@ -43,13 +45,15 @@ func CountCPU() (int, int, error) {
 		if len(parts) == 0 {
 			continue
 		}
-		if parts[0] == "cpu" {
-			continue
-		}
+
 		if parts[0] == "intr" {
 			break
 		}
-		if strings.HasPrefix(parts[0], "cpu") {
+
+		// if parts[0] == "cpu" {
+		// 	continue
+		// }
+		if strings.HasPrefix(parts[0], "cpu") && len(parts[0]) > 3 {
 			cpuCount++
 		}
 
@@ -64,12 +68,16 @@ func CountCPU() (int, int, error) {
 
 // return system-wide CPU
 func ShowCPUstat() (CPUStat, error) {
-	file, err := os.Open(statFilePath)
+
+	path := filesystem.Path("stat")
+	file, err := filesystem.OpenPath(path)
+
 	if err != nil {
 		return CPUStat{}, fmt.Errorf("error reading the file: %v", err)
 	}
 
 	defer file.Close()
+
 	scanner := bufio.NewScanner(file)
 
 	systemCPUStat := CPUStat{}
@@ -103,7 +111,10 @@ func ShowCPUstat() (CPUStat, error) {
 
 // return per CPU metrics
 func ShowPerCpuStat() error {
-	file, err := os.Open(statFilePath)
+
+	path := filesystem.Path("stat")
+	file, err := filesystem.OpenPath(path)
+
 	if err != nil {
 		return fmt.Errorf("error reading the file: %v", err)
 	}

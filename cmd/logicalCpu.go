@@ -5,7 +5,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	metrics "github.com/vak-rashu/metrics-go/internal"
+	metrics "github.com/vak-rashu/metrics-go/pkg"
 )
 
 // logicalCpuCmd represents the logicalCpu command
