@@ -23,6 +23,8 @@ type CPUStat struct {
 	guestNiceTime float64 // time spent running a niced virtual CPU
 }
 
+const clockTick = 100
+
 // return how many total logical cpus are there
 func CountCPU() (int, int, error) {
 
@@ -68,45 +70,53 @@ func CountCPU() (int, int, error) {
 
 // return system-wide CPU
 func ShowCPUstat() (CPUStat, error) {
-
-	path := filesystem.Path("stat")
-	file, err := filesystem.OpenPath(path)
-
+	file, err := filesystem.OpenPath("stat")
 	if err != nil {
-		return CPUStat{}, fmt.Errorf("error reading the file: %v", err)
+		return CPUStat{}, err
 	}
 
 	defer file.Close()
 
+	cpu := CPUStat{}
 	scanner := bufio.NewScanner(file)
 
-	systemCPUStat := CPUStat{}
-
 	for scanner.Scan() {
-		lines := scanner.Text()
-		parts := strings.Fields(lines)
-
-		var cpu string
+		line := scanner.Text()
+		parts := strings.Fields(line)
 
 		if parts[0] == "cpu" {
-			count, err := fmt.Sscanf(lines, "%s %f %f %f %f %f %f %f %f %f %f",
-				&cpu,
-				&systemCPUStat.userTime, &systemCPUStat.niceTime, &systemCPUStat.systemTime, &systemCPUStat.idleTime,
-				&systemCPUStat.ioWaitTime, &systemCPUStat.irqTime, &systemCPUStat.softIRQTime, &systemCPUStat.stealTime,
-				&systemCPUStat.guestTime, &systemCPUStat.guestNiceTime)
+			count, err := fmt.Sscanf(line,
+				"%s %f %f %f %f %f %f %f %f %f %f",
+				&cpu.cpu,
+				&cpu.userTime, &cpu.systemTime, &cpu.stealTime, &cpu.softIRQTime, &cpu.niceTime,
+				&cpu.irqTime, &cpu.ioWaitTime, &cpu.idleTime, &cpu.guestTime, &cpu.guestNiceTime,
+			)
 			if err != nil {
 				return CPUStat{}, fmt.Errorf("Error: %v", err)
 			}
+
 			if count == 0 {
-				return CPUStat{}, fmt.Errorf("Error: %v", err)
+				return CPUStat{}, fmt.Errorf("Error: file not parsed successfully")
 			}
 		}
 	}
+
 	if err := scanner.Err(); err != nil {
-		return CPUStat{}, fmt.Errorf("error encountered during scanning: %v", err)
+		return CPUStat{}, fmt.Errorf("Error: %v", err)
 	}
 
-	return systemCPUStat, nil
+	cpu.userTime /= clockTick
+	cpu.systemTime /= clockTick
+	cpu.stealTime /= clockTick
+	cpu.softIRQTime /= clockTick
+	cpu.niceTime /= clockTick
+	cpu.idleTime /= clockTick
+	cpu.ioWaitTime /= clockTick
+	cpu.idleTime /= clockTick
+	cpu.guestNiceTime /= clockTick
+	cpu.guestNiceTime /= clockTick
+
+	return cpu, nil
 }
 
 // return per CPU metrics
@@ -121,14 +131,12 @@ func ShowPerCpuStat() error {
 
 	defer file.Close()
 
+	cpu := CPUStat{}
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		parts := strings.Fields(line)
-
-		var cpu string
-		systemCPUStat := CPUStat{}
 
 		if len(parts) == 0 {
 			continue
@@ -136,20 +144,35 @@ func ShowPerCpuStat() error {
 		if parts[0] == "intr" {
 			break
 		}
-		if strings.HasPrefix(parts[0], "cpu") {
-			count, err := fmt.Sscanf(line, "%s %f %f %f %f %f %f %f %f %f %f",
-				&cpu,
-				&systemCPUStat.userTime, &systemCPUStat.niceTime, &systemCPUStat.systemTime, &systemCPUStat.idleTime,
-				&systemCPUStat.ioWaitTime, &systemCPUStat.irqTime, &systemCPUStat.softIRQTime, &systemCPUStat.stealTime,
-				&systemCPUStat.guestTime, &systemCPUStat.guestNiceTime)
+
+		// loop in every cpu[num] line
+		// except for the first "cpu" line
+		if len(parts[0]) > 3 {
+			count, err := fmt.Sscanf(line,
+				"%s %f %f %f %f %f %f %f %f %f %f",
+				&cpu.cpu,
+				&cpu.userTime, &cpu.systemTime, &cpu.stealTime, &cpu.softIRQTime, &cpu.niceTime,
+				&cpu.irqTime, &cpu.ioWaitTime, &cpu.idleTime, &cpu.guestTime, &cpu.guestNiceTime,
+			)
 			if err != nil {
-				return fmt.Errorf("Error: %v", err)
+				return fmt.Errorf("%v", err)
 			}
 			if count == 0 {
 				fmt.Println("stats not found")
 			}
 
-			fmt.Println(systemCPUStat)
+			cpu.userTime /= clockTick
+			cpu.systemTime /= clockTick
+			cpu.stealTime /= clockTick
+			cpu.softIRQTime /= clockTick
+			cpu.niceTime /= clockTick
+			cpu.idleTime /= clockTick
+			cpu.ioWaitTime /= clockTick
+			cpu.idleTime /= clockTick
+			cpu.guestNiceTime /= clockTick
+			cpu.guestNiceTime /= clockTick
+
+			fmt.Println(cpu)
 		}
 	}
 
