@@ -8,6 +8,11 @@ import (
 	metrics "github.com/vak-rashu/metrics-go/pkg"
 )
 
+var (
+	isAll      bool
+	logicalCpu string
+)
+
 // cpuCmd represents the cpu command
 var cpuCmd = &cobra.Command{
 	Use:   "cpu",
@@ -19,15 +24,24 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+
 		showAll, err := cmd.Flags().GetBool("all")
+		getLogical, err := cmd.Flags().GetString("logical")
 		if err != nil {
 			return err
 		}
+
 		if showAll {
 			err := metrics.ShowPerCpuStat()
 			if err != nil {
 				return err
 			}
+		} else if getLogical == "true" {
+			logicalCpu, err := metrics.LogicalCpuCount()
+			if err != nil {
+				return err
+			}
+			cmd.Printf("Total number of Logical CPU are %d\n", logicalCpu)
 		} else {
 			systemCpuStat, err := metrics.ShowCPUstat()
 			if err != nil {
@@ -41,11 +55,7 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
-	showCmd.AddCommand(cpuCmd)
+	cpuCmd.PersistentFlags().BoolVarP(&isAll, "all", "a", false, "Show all cpu data")
+	cpuCmd.PersistentFlags().StringVarP(&logicalCpu, "logical", "l", "false", "Toggle off logical cpu")
 
-	cpuCmd.PersistentFlags().BoolP("all", "a", true, "Show all cpu data")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// cpuCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
