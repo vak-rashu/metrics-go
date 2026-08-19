@@ -1,1 +1,1 @@
-Rewritten of METRICS in Golang.
+Rewritten of [[METRICS](https://github.com/vak-rashu/METRICS/tree/main)] in Golang.
