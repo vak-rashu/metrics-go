@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -55,7 +54,6 @@ func LogicalCpuCount() (int, error) {
 		if parts[0] == "processor" {
 			cpuCount++
 		}
-
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -65,23 +63,21 @@ func LogicalCpuCount() (int, error) {
 	return cpuCount, nil
 }
 
-func CountCpuCores() {
+// returns the number of cores count
+func CountCpuCores() (int, error) {
 
 	physicalIdPath := "/sys/devices/system/cpu/cpu[0-9]*/topology/physical_package_id"
-
 	slice1, err := filepath.Glob(physicalIdPath)
 
 	if err != nil {
-		fmt.Println(err)
-		// return 0, fmt.Errorf("%v", err)
+		return 0, fmt.Errorf("%v", err)
 	}
 
-	coreIdSlice := make([]int, 0)
-	coresMap := make(map[int][]int)
-
+	coresMap := make(map[int]map[int]struct{})
 	for _, file := range slice1 {
-		sysPath := strings.Split(file, "/")
-		coreIdPath := "/sys/devices/system/cpu/" + sysPath[5] + "/topology/core_id"
+
+		sysPath := filepath.Dir(file)
+		coreIdPath := sysPath + "/core_id"
 
 		physicalId, err := os.ReadFile(file)
 		coreId, err := os.ReadFile(coreIdPath)
@@ -96,14 +92,10 @@ func CountCpuCores() {
 			fmt.Println(err)
 		}
 
-		coreIdSlice = append(coreIdSlice, intCoreId)
-
-		coresMap[intPhysicalId] = coreIdSlice
-
-		slices.Sort(coresMap[intPhysicalId])
-		coresMap[intPhysicalId] = slices.Compact(coresMap[intPhysicalId])
-		fmt.Println(coreIdSlice, coresMap)
-
+		if _, ok := coresMap[intPhysicalId]; !ok {
+			coresMap[intPhysicalId] = make(map[int]struct{})
+		}
+		coresMap[intPhysicalId][intCoreId] = struct{}{}
 	}
 
 	coresCount := 0
@@ -111,8 +103,7 @@ func CountCpuCores() {
 		coresCount += len(slice)
 	}
 
-	// return coresCount, nil
-	fmt.Println(coresCount)
+	return coresCount, nil
 }
 
 // return system-wide CPU
@@ -231,5 +222,3 @@ func ShowPerCpuStat() error {
 
 	return nil
 }
-
-//  mapping[current_info[b'physical id']] = current_info[b'cpu cores']

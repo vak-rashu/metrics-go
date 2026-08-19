@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	isAll      bool
+	isAll      string
 	logicalCpu string
 )
 
@@ -24,7 +24,6 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-
 		showAll, err := cmd.Flags().GetBool("all")
 		getLogical, err := cmd.Flags().GetString("logical")
 		if err != nil {
@@ -55,7 +54,7 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
-	cpuCmd.PersistentFlags().BoolVarP(&isAll, "all", "a", false, "Show all cpu data")
+	cpuCmd.PersistentFlags().StringVarP(&isAll, "all", "a", "false", "Show all cpu data")
 	cpuCmd.PersistentFlags().StringVarP(&logicalCpu, "logical", "l", "false", "Toggle off logical cpu")
 
 }

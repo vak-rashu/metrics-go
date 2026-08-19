@@ -3,11 +3,8 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
 */
 package main
 
-import (
-	metrics "github.com/vak-rashu/metrics-go/pkg"
-)
+import "github.com/vak-rashu/metrics-go/cmd"
 
 func main() {
-	// cmd.Execute()
-	metrics.CountCpuCores()
+	cmd.Execute()
 }
