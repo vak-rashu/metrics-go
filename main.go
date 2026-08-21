@@ -8,5 +8,4 @@ import tui "github.com/vak-rashu/metrics-go/ui"
 func main() {
 	// cmd.Execute()
 	tui.StartTui()
-
 }

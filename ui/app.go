@@ -1,12 +1,12 @@
 package tui
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func StartTui() {
 	p := tea.NewProgram(
-		newSimplePage("METRICS: Streamline your systems monitoring"),
+		cpuTUI("METRICS: Streamline your systems monitoring"),
 	)
 
 	if _, err := p.Run(); err != nil {

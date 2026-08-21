@@ -1,22 +1,10 @@
 package tui
 
 import (
+	tea "charm.land/bubbletea/v2"
 	gloss "charm.land/lipgloss/v2"
-	tea "github.com/charmbracelet/bubbletea"
 	metrics "github.com/vak-rashu/metrics-go/pkg"
 )
-
-var headLineStyle = gloss.NewStyle().
-	Width(100).
-	Align(gloss.Center).
-	Background(gloss.Color("3")).
-	Foreground(gloss.Color("12"))
-
-var tabStyle = gloss.NewStyle().
-	Border(gloss.RoundedBorder()).
-	PaddingLeft(1).
-	PaddingRight(1).
-	BorderForeground(gloss.Color("183"))
 
 // model data
 type simplePage struct {
@@ -29,7 +17,7 @@ var blocks = []string{
 	"Memory",
 }
 
-func newSimplePage(msg string) simplePage {
+func cpuTUI(msg string) simplePage {
 	return simplePage{msg: msg}
 }
 
