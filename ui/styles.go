@@ -15,3 +15,9 @@ var tabStyle = gloss.NewStyle().
 	PaddingLeft(1).
 	PaddingRight(1).
 	BorderForeground(gloss.Color("183"))
+
+var blocks = []string{
+	"CPU",
+	"Processes",
+	"Memory",
+}

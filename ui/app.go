@@ -1,12 +1,14 @@
 package tui
 
-// func StartTui() {
-// 	p := tea.NewProgram(
-// 		stat{},
-// 	)
+import tea "charm.land/bubbletea/v2"
 
-// 	if _, err := p.Run(); err != nil {
-// 		panic(err)
-// 	}
+func StartTui() {
+	p := tea.NewProgram(
+		stat{},
+	)
 
-// }
+	if _, err := p.Run(); err != nil {
+		panic(err)
+	}
+
+}
