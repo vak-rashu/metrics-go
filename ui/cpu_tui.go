@@ -7,6 +7,7 @@ import (
 	metrics "github.com/vak-rashu/metrics-go/pkg"
 )
 
+// stat model follows interface Model
 type stat struct {
 	msg string
 	val metrics.CPUStat
