@@ -3,9 +3,9 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
 */
 package main
 
-import tui "github.com/vak-rashu/metrics-go/ui"
+import "github.com/vak-rashu/metrics-go/cmd"
 
 func main() {
-	// cmd.Execute()
-	tui.StartTui()
+	cmd.Execute()
+	// tui.StartTui()
 }
