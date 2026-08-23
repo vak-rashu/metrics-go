@@ -9,6 +9,7 @@ import (
 
 func main() {
 	// cmd.Execute()
-	tui.StartTui()
+	// tui.StartTui()
 	// fmt.Println(metrics.ShowCPUstat())
+	tui.CreateChart()
 }

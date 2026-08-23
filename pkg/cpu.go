@@ -14,16 +14,16 @@ import (
 
 type CPUStat struct {
 	cpu           string
-	userTime      float64
-	niceTime      float64
-	systemTime    float64
-	idleTime      float64
-	ioWaitTime    float64
+	UserTime      float64
+	NiceTime      float64
+	SystemTime    float64
+	IdleTime      float64
+	IOWaitTime    float64
 	irqTime       float64
-	softIRQTime   float64
-	stealTime     float64 // time stolen by a hypervisor
-	guestTime     float64 // time spent running a virtual CPU
-	guestNiceTime float64 // time spent running a niced virtual CPU
+	SoftIRQTime   float64
+	StealTime     float64 // time stolen by a hypervisor
+	GuestTime     float64 // time spent running a virtual CPU
+	GuestNiceTime float64 // time spent running a niced virtual CPU
 }
 
 const clockTick = 100
@@ -128,8 +128,8 @@ func ShowCPUstat() (CPUStat, error) {
 			count, err := fmt.Sscanf(line,
 				"%s %f %f %f %f %f %f %f %f %f %f",
 				&cpu.cpu,
-				&cpu.userTime, &cpu.systemTime, &cpu.stealTime, &cpu.softIRQTime, &cpu.niceTime,
-				&cpu.irqTime, &cpu.ioWaitTime, &cpu.idleTime, &cpu.guestTime, &cpu.guestNiceTime,
+				&cpu.UserTime, &cpu.SystemTime, &cpu.StealTime, &cpu.SoftIRQTime, &cpu.NiceTime,
+				&cpu.irqTime, &cpu.IOWaitTime, &cpu.IdleTime, &cpu.GuestTime, &cpu.GuestNiceTime,
 			)
 			if err != nil {
 				return CPUStat{}, fmt.Errorf("Error: %v", err)
@@ -145,16 +145,16 @@ func ShowCPUstat() (CPUStat, error) {
 		return CPUStat{}, fmt.Errorf("Error: %v", err)
 	}
 
-	cpu.userTime /= clockTick
-	cpu.systemTime /= clockTick
-	cpu.stealTime /= clockTick
-	cpu.softIRQTime /= clockTick
-	cpu.niceTime /= clockTick
-	cpu.idleTime /= clockTick
-	cpu.ioWaitTime /= clockTick
-	cpu.idleTime /= clockTick
-	cpu.guestNiceTime /= clockTick
-	cpu.guestNiceTime /= clockTick
+	cpu.UserTime /= clockTick
+	cpu.SystemTime /= clockTick
+	cpu.StealTime /= clockTick
+	cpu.SoftIRQTime /= clockTick
+	cpu.NiceTime /= clockTick
+	cpu.IdleTime /= clockTick
+	cpu.IOWaitTime /= clockTick
+	cpu.IdleTime /= clockTick
+	cpu.GuestNiceTime /= clockTick
+	cpu.GuestNiceTime /= clockTick
 
 	return cpu, nil
 }
@@ -191,8 +191,8 @@ func ShowPerCpuStat() error {
 			count, err := fmt.Sscanf(line,
 				"%s %f %f %f %f %f %f %f %f %f %f",
 				&cpu.cpu,
-				&cpu.userTime, &cpu.systemTime, &cpu.stealTime, &cpu.softIRQTime, &cpu.niceTime,
-				&cpu.irqTime, &cpu.ioWaitTime, &cpu.idleTime, &cpu.guestTime, &cpu.guestNiceTime,
+				&cpu.UserTime, &cpu.SystemTime, &cpu.StealTime, &cpu.SoftIRQTime, &cpu.NiceTime,
+				&cpu.irqTime, &cpu.IOWaitTime, &cpu.IdleTime, &cpu.GuestTime, &cpu.GuestNiceTime,
 			)
 			if err != nil {
 				return fmt.Errorf("%v", err)
@@ -201,16 +201,16 @@ func ShowPerCpuStat() error {
 				fmt.Println("stats not found")
 			}
 
-			cpu.userTime /= clockTick
-			cpu.systemTime /= clockTick
-			cpu.stealTime /= clockTick
-			cpu.softIRQTime /= clockTick
-			cpu.niceTime /= clockTick
-			cpu.idleTime /= clockTick
-			cpu.ioWaitTime /= clockTick
-			cpu.idleTime /= clockTick
-			cpu.guestNiceTime /= clockTick
-			cpu.guestNiceTime /= clockTick
+			cpu.UserTime /= clockTick
+			cpu.SystemTime /= clockTick
+			cpu.StealTime /= clockTick
+			cpu.SoftIRQTime /= clockTick
+			cpu.NiceTime /= clockTick
+			cpu.IdleTime /= clockTick
+			cpu.IOWaitTime /= clockTick
+			cpu.IdleTime /= clockTick
+			cpu.GuestNiceTime /= clockTick
+			cpu.GuestNiceTime /= clockTick
 
 			fmt.Println(cpu)
 		}
