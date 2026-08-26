@@ -26,6 +26,8 @@ type CPUStat struct {
 	GuestNiceTime float64 // time spent running a niced virtual CPU
 }
 
+// instead of assuming
+// get the cpu clocktick(clock speed)
 const clockTick = 100
 
 // return how many total logical cpus are there
