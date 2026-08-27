@@ -14,10 +14,10 @@ func main() {
 	// tui.StartTui()
 	// fmt.Println(metrics.ShowCPUstat())
 	// tui.CreateChart()
-	if perc, err := metrics.CalculateCPUStat(); err != nil {
+	if a, b, perc, err := metrics.CalculateCPUStat(); err != nil {
 		panic(err)
 	} else {
-		fmt.Println(perc)
+		fmt.Println(a, b, perc)
 	}
 
 }

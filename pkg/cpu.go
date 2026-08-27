@@ -223,11 +223,11 @@ func getPerCpuStat() error {
 	return nil
 }
 
-func CalculateCPUStat() (perc float64, err error) {
+func CalculateCPUStat() (float64, float64, float64, error) {
 
 	cpu, err := getCPUstat()
 	if err != nil {
-		return 0, err
+		return 0, 0, 0, err
 	}
 
 	// summation of all the time slices
@@ -241,7 +241,7 @@ func CalculateCPUStat() (perc float64, err error) {
 	idleTime := totalCPUTime - (cpu.IdleTime + cpu.IOWaitTime)
 
 	// calculate percentage
-	perc = (((totalCPUTime - idleTime) / totalCPUTime) * 100)
+	perc := (((totalCPUTime - idleTime) / totalCPUTime) * 100)
 
-	return perc, nil
+	return totalCPUTime, idleTime, perc, nil
 }
