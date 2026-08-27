@@ -10,6 +10,7 @@ import (
 	tslc "github.com/NimbleMarkets/ntcharts/v2/linechart/timeserieslinechart"
 	zone "github.com/lrstanley/bubblezone/v2"
 	metrics "github.com/vak-rashu/metrics-go/pkg"
+	// metrics "github.com/vak-rashu/metrics-go/pkg"
 )
 
 func StartTui() {
@@ -43,13 +44,21 @@ func CreateChart() {
 		chart.PushDataSet("dataset2", tslc.TimePoint{Time: date, Value: v})
 	}
 
+	// dataSet := []float64{0, 2, 4, 6, 8, 10, 8, 6, 4, 2, 0}
+	// for i, v := range dataSet {
+	// 	date := time.Now().Add(time.Hour * time.Duration(24*i))
+	// 	chart.Push(tslc.TimePoint{Time: date, Value: v})
+	// }
+
 	chart.SetDataSetStyle("dataset2",
 		gloss.NewStyle().
 			Foreground(gloss.Color("10")))
 
-	m := model{chart, zoneManager}
-	if err := booba.Run(m); err != nil {
-		fmt.Println("Error running program:", err)
-		os.Exit(1)
+	for {
+		m := model{chart, zoneManager}
+		if err := booba.Run(m); err != nil {
+			fmt.Println("Error running program:", err)
+			os.Exit(1)
+		}
 	}
 }

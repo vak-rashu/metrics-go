@@ -241,7 +241,9 @@ func CalculateCPUStat() (perc float64, err error) {
 	idleTime := totalCPUTime - (cpu.IdleTime + cpu.IOWaitTime)
 
 	// calculate percentage
-	perc = ((totalCPUTime - idleTime) / totalCPUTime) * 100
+	for {
+		perc = ((totalCPUTime - idleTime) / totalCPUTime) * 100
+	}
 
-	return perc, nil
+	// return perc, nil
 }
