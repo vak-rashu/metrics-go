@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/vak-rashu/levenshtein-cli"
-	fs "github.com/vak-rashu/metrics-go/internal"
 )
 
 // metrics show process <process-name>
@@ -42,8 +41,8 @@ func ShowPerProcessData(arg string) ([]string, processStat, error) {
 	if pid != 0 {
 		pidString := strconv.Itoa(pid)
 
-		processFilePath := fs.Path(fmt.Sprintf("/%s/stat", pidString))
-		file, err := fs.OpenPath(processFilePath)
+		processFilePath := path(fmt.Sprintf("/%s/stat", pidString))
+		file, err := openPath(processFilePath)
 		if err != nil {
 			return nil, processStat{}, err
 		}

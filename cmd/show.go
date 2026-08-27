@@ -24,7 +24,7 @@ to quickly create a Cobra application.`,
 	},
 }
 
-func init() {
-	showCmd.AddCommand(cpuCmd)
-	showCmd.AddCommand(processCmd)
-}
+// func init() {
+// 	showCmd.AddCommand(cpuCmd)
+// 	showCmd.AddCommand(processCmd)
+// }

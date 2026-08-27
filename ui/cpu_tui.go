@@ -52,10 +52,7 @@ func (c stat) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func getCPUStat() tea.Cmd {
 	return func() tea.Msg {
-		if cpu, err := metrics.ShowCPUstat(); err != nil {
-			return err
-		} else {
-			return cpu
-		}
+		cpu := metrics.CalculateCPUStat()
+		return cpu
 	}
 }

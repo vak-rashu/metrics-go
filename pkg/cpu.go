@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	filesystem "github.com/vak-rashu/metrics-go/internal"
 )
 
 type CPUStat struct {
@@ -33,8 +31,8 @@ const clockTick = 100
 // return how many total logical cpus are there
 func LogicalCpuCount() (int, error) {
 
-	path := filesystem.Path("cpuinfo")
-	file, err := filesystem.OpenPath(path)
+	path := path("cpuinfo")
+	file, err := openPath(path)
 
 	if err != nil {
 		return 0, fmt.Errorf("error reading the file: %v", err)
@@ -109,9 +107,9 @@ func CountCpuCores() (int, error) {
 }
 
 // return system-wide CPU
-func ShowCPUstat() (CPUStat, error) {
-	path := filesystem.Path("stat")
-	file, err := filesystem.OpenPath(path)
+func getCPUstat() (CPUStat, error) {
+	path := path("stat")
+	file, err := openPath(path)
 
 	if err != nil {
 		return CPUStat{}, err
@@ -162,10 +160,10 @@ func ShowCPUstat() (CPUStat, error) {
 }
 
 // return per CPU metrics
-func ShowPerCpuStat() error {
+func getPerCpuStat() error {
 
-	path := filesystem.Path("stat")
-	file, err := filesystem.OpenPath(path)
+	path := path("stat")
+	file, err := openPath(path)
 
 	if err != nil {
 		return fmt.Errorf("error reading the file: %v", err)
@@ -223,4 +221,27 @@ func ShowPerCpuStat() error {
 	}
 
 	return nil
+}
+
+func CalculateCPUStat() (perc float64, err error) {
+
+	cpu, err := getCPUstat()
+	if err != nil {
+		return 0, err
+	}
+
+	// summation of all the time slices
+	CPUTime := cpu.UserTime + cpu.NiceTime + cpu.SystemTime + cpu.IdleTime + cpu.IOWaitTime +
+		cpu.irqTime + cpu.SoftIRQTime + cpu.StealTime + cpu.GuestTime + cpu.GuestNiceTime
+
+	// after subtracting guest and guest nice time
+	totalCPUTime := CPUTime - (cpu.GuestTime + cpu.GuestNiceTime)
+
+	// separate out the idle and IOwait time
+	idleTime := totalCPUTime - (cpu.IdleTime + cpu.IOWaitTime)
+
+	// calculate percentage
+	perc = ((totalCPUTime - idleTime) / totalCPUTime) * 100
+
+	return perc, nil
 }
