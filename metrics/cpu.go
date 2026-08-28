@@ -223,25 +223,49 @@ func getPerCpuStat() error {
 	return nil
 }
 
-func CalculateCPUStat() (float64, float64, float64, error) {
+// store old cpu metrics
+var cpuOld = []float64{}
+var currentCPU = []float64{}
+var perc float64
+
+func CalculateCPUStat() (float64, error) {
 
 	cpu, err := getCPUstat()
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, err
 	}
 
-	// summation of all the time slices
-	CPUTime := cpu.UserTime + cpu.NiceTime + cpu.SystemTime + cpu.IdleTime + cpu.IOWaitTime +
-		cpu.irqTime + cpu.SoftIRQTime + cpu.StealTime + cpu.GuestTime + cpu.GuestNiceTime
+	// initialise old cpu values with 0(nil)
+	// for the case when the metrics tui is started for the first time
+	cpuOld = []float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
+	oldCPUSum := 0.0
+	for _, val := range cpuOld {
+		oldCPUSum += val
+	}
 
 	// after subtracting guest and guest nice time
-	totalCPUTime := CPUTime - (cpu.GuestTime + cpu.GuestNiceTime)
+	oldCPUTime := oldCPUSum - (cpuOld[8] + cpuOld[9])
 
 	// separate out the idle and IOwait time
-	idleTime := totalCPUTime - (cpu.IdleTime + cpu.IOWaitTime)
+	oldIdleTime := oldCPUTime - (cpuOld[3] + cpuOld[4])
+
+	// initialise the current cpu with current values
+	currentCPU = []float64{cpu.UserTime, cpu.NiceTime, cpu.SystemTime, cpu.IdleTime, cpu.IOWaitTime,
+		cpu.irqTime, cpu.SoftIRQTime, cpu.StealTime, cpu.GuestTime, cpu.GuestNiceTime}
+
+	// summation of all the time slices
+	currentCPUSum := 0.0
+	for _, val := range currentCPU {
+		currentCPUSum += val
+	}
+
+	newCPUTime := currentCPUSum - (currentCPU[8] + currentCPU[9])
+
+	newIdleTime := newCPUTime - (currentCPU[3] + currentCPU[4])
 
 	// calculate percentage
-	perc := (((totalCPUTime - idleTime) / totalCPUTime) * 100)
+	perc = (((newCPUTime - oldCPUTime) - (newIdleTime-oldIdleTime)/newCPUTime) * 100)
 
-	return totalCPUTime, idleTime, perc, nil
+	return perc, nil
 }
