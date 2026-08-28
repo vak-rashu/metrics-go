@@ -13,8 +13,6 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-var perc float64
-
 type tickMsg time.Time
 
 var defaultStyle = lipgloss.NewStyle().
@@ -25,7 +23,8 @@ var blockStyle4 = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("3")) // yellow
 
 type model struct {
-	s5 sparkline.Model
+	s5            sparkline.Model
+	activeCPUTime float64
 }
 
 func doTick() tea.Cmd {
@@ -54,8 +53,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case tickMsg:
-		perc = getStat()
-		m.s5.Push(perc)
+		m.activeCPUTime = getStat()
+		m.s5.Push(m.activeCPUTime)
 		m.s5.DrawBraille()
 	}
 	return m, doTick()
@@ -65,11 +64,10 @@ func (m model) View() tea.View {
 	s := "press any button to push the same random value to all sparklines, `q/ctrl+c` to quit\n"
 	s += lipgloss.JoinHorizontal(lipgloss.Top,
 		lipgloss.JoinVertical(lipgloss.Left,
-			defaultStyle.Render(fmt.Sprintf("CPU Active Time: %.9f", perc)),
+			defaultStyle.Render(fmt.Sprintf("CPU Active Time: %.9f", m.activeCPUTime)),
 			defaultStyle.Render("\nDrawBraille()\n"+m.s5.View()),
 		),
 	) + "\n"
-	// gloss.Print("v123", m.perc)
 
 	return tea.NewView(s)
 }
