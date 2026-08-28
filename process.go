@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	metrics "github.com/vak-rashu/metrics-go/pkg"
+	metrics "github.com/vak-rashu/metrics-go/metrics"
 )
 
 // processCmd represents the cpu command
