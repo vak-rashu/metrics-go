@@ -62,24 +62,11 @@ func CreateChart() {
 	width := 25
 	height := 12
 	max := 100.0
-	// all sparklines contain the same values,
-	// but will be scaled when displayed based on sparkline height
-	// sparkline1 calls Draw with no background style
-	// sparkline2 calls DrawColumnsOnly with background style
-	// sparkline3 calls Draw with background style (same style as sparkline2)
-	// sparkline4 calls Draw with background style
-	// sparkline5 calls DrawBraille with no background style
 
 	m := model{
-		// sparkline.New(width, height, sparkline.WithMaxValue(max), sparkline.WithStyle(blockStyle)),
-		// sparkline.New(width, (height/2)-1, sparkline.WithMaxValue(max), sparkline.WithStyle(blockStyle2)),
-		// sparkline.New(width, (height/2)-1, sparkline.WithMaxValue(max), sparkline.WithStyle(blockStyle2)),
-		// sparkline.New(width, height/4, sparkline.WithMaxValue(max), sparkline.WithStyle(blockStyle3)),
 		sparkline.New(width, height/4, sparkline.WithMaxValue(max), sparkline.WithStyle(blockStyle4)),
 		max}
-	// booba.Run is a tea.Program substitute that dispatches to native Bubble Tea
-	// or the WASM/ghostty-web bridge depending on build target.
-	// See https://github.com/NimbleMarkets/go-booba-example.
+
 	if err := booba.Run(m); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
