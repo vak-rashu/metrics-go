@@ -1,3 +1,5 @@
+// cmd: metrics tui
+
 package tui
 
 import (
@@ -11,8 +13,6 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-type activeTime float64
-
 var perc float64
 
 type tickMsg time.Time
@@ -25,8 +25,7 @@ var blockStyle4 = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("3")) // yellow
 
 type model struct {
-	s5  sparkline.Model
-	max float64
+	s5 sparkline.Model
 }
 
 func doTick() tea.Cmd {
@@ -39,15 +38,12 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
-func getStat() tea.Cmd {
+func getStat() float64 {
 	_, _, perc, err := metrics.CalculateCPUStat()
 	if err != nil {
 		panic(err)
 	}
-
-	return tea.Tick(1*time.Second, func(time.Time) tea.Msg {
-		return activeTime(perc)
-	})
+	return perc
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -58,27 +54,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case tickMsg:
-		return m, getStat()
-	case activeTime:
-		perc := getStat()
-		val := perc()
-		switch val := val.(type) {
-		case activeTime:
-			m.s5.Push(float64(val))
-			m.s5.DrawBraille()
-		}
-
+		perc = getStat()
+		m.s5.Push(perc)
+		m.s5.DrawBraille()
 	}
-	return m, getStat()
+	return m, doTick()
 }
 
 func (m model) View() tea.View {
 	s := "press any button to push the same random value to all sparklines, `q/ctrl+c` to quit\n"
 	s += lipgloss.JoinHorizontal(lipgloss.Top,
 		lipgloss.JoinVertical(lipgloss.Left,
-			defaultStyle.Render(fmt.Sprintf("Max: %.0f, Random: %.2f", m.max, perc)),
+			defaultStyle.Render(fmt.Sprintf("CPU Active Time: %.9f", perc)),
 			defaultStyle.Render("\nDrawBraille()\n"+m.s5.View()),
 		),
 	) + "\n"
+	// gloss.Print("v123", m.perc)
+
 	return tea.NewView(s)
 }
