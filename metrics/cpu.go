@@ -265,7 +265,7 @@ func CalculateCPUStat() (float64, error) {
 	newIdleTime := newCPUTime - (currentCPU[3] + currentCPU[4])
 
 	// calculate percentage
-	perc = (((newCPUTime - oldCPUTime) - (newIdleTime-oldIdleTime)/newCPUTime) * 100)
+	perc = ((((newCPUTime - oldCPUTime) - (newIdleTime - oldIdleTime)) / newCPUTime) * 100)
 
 	return perc, nil
 }

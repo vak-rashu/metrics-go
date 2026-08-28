@@ -64,7 +64,7 @@ func (m model) View() tea.View {
 	s := "press any button to push the same random value to all sparklines, `q/ctrl+c` to quit\n"
 	s += lipgloss.JoinHorizontal(lipgloss.Top,
 		lipgloss.JoinVertical(lipgloss.Left,
-			defaultStyle.Render(fmt.Sprintf("CPU Active Time: %v", m.perc)),
+			defaultStyle.Render(fmt.Sprintf("CPU Active Time: %f", m.perc)),
 			defaultStyle.Render("\nDrawBraille()\n"+m.s5.View()),
 		),
 	) + "\n"
