@@ -31,7 +31,7 @@ const clockTick = 100
 // return how many total logical cpus are there
 func LogicalCpuCount() (int, error) {
 
-	path := path("cpuinfo")
+	path := procPath("cpuinfo")
 	file, err := openPath(path)
 
 	if err != nil {
@@ -108,7 +108,7 @@ func CountCpuCores() (int, error) {
 
 // return system-wide CPU
 func getCPUstat() (CPUStat, error) {
-	path := path("stat")
+	path := procPath("stat")
 	file, err := openPath(path)
 
 	if err != nil {
@@ -162,7 +162,7 @@ func getCPUstat() (CPUStat, error) {
 // return per CPU metrics
 func getPerCpuStat() error {
 
-	path := path("stat")
+	path := procPath("stat")
 	file, err := openPath(path)
 
 	if err != nil {

@@ -1,1 +1,3 @@
 package metrics
+
+func readProcDiskstat() {}

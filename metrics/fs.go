@@ -9,9 +9,14 @@ import (
 )
 
 const procFileSystem string = "/proc"
+const sysFileSystem string = "/sys"
 
-func path(p ...string) string {
+func procPath(p ...string) string {
 	return filepath.Join(append([]string{procFileSystem}, p...)...)
+}
+
+func sysPath(p ...string) string {
+	return filepath.Join(append([]string{sysFileSystem}, p...)...)
 }
 
 func openPath(path string) (io.ReadCloser, error) {

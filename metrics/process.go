@@ -41,7 +41,7 @@ func ShowPerProcessData(arg string) ([]string, processStat, error) {
 	if pid != 0 {
 		pidString := strconv.Itoa(pid)
 
-		processFilePath := path(fmt.Sprintf("/%s/stat", pidString))
+		processFilePath := procPath(fmt.Sprintf("/%s/stat", pidString))
 		file, err := openPath(processFilePath)
 		if err != nil {
 			return nil, processStat{}, err
