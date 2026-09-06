@@ -65,7 +65,7 @@ func (m model) View() tea.View {
 	s += lipgloss.JoinHorizontal(lipgloss.Top,
 		lipgloss.JoinVertical(lipgloss.Left,
 			defaultStyle.Render(fmt.Sprintf("CPU Active Time: %f", m.perc)),
-			defaultStyle.Render("\nDrawBraille()\n"+m.s5.View()),
+			defaultStyle.Render("\nCPU\n"+m.s5.View()),
 		),
 	) + "\n"
 
