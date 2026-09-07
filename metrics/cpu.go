@@ -129,8 +129,8 @@ func getCPUstat() (CPUStat, error) {
 			count, err := fmt.Sscanf(line,
 				"%s %f %f %f %f %f %f %f %f %f %f",
 				&cpu.CPU,
-				&cpu.UserTime, &cpu.SystemTime, &cpu.StealTime, &cpu.SoftIRQTime, &cpu.NiceTime,
-				&cpu.IRQTime, &cpu.IOWaitTime, &cpu.IdleTime, &cpu.GuestTime, &cpu.GuestNiceTime,
+				&cpu.UserTime, &cpu.NiceTime, &cpu.SystemTime, &cpu.IdleTime, &cpu.IOWaitTime,
+				&cpu.IRQTime, &cpu.SoftIRQTime, &cpu.StealTime, &cpu.GuestTime, &cpu.GuestNiceTime,
 			)
 			if err != nil {
 				return CPUStat{}, fmt.Errorf("Error: %v", err)
@@ -193,8 +193,8 @@ func getPerCpuStat() error {
 			count, err := fmt.Sscanf(line,
 				"%s %f %f %f %f %f %f %f %f %f %f",
 				&cpu.CPU,
-				&cpu.UserTime, &cpu.SystemTime, &cpu.StealTime, &cpu.SoftIRQTime, &cpu.NiceTime,
-				&cpu.IRQTime, &cpu.IOWaitTime, &cpu.IdleTime, &cpu.GuestTime, &cpu.GuestNiceTime,
+				&cpu.UserTime, &cpu.NiceTime, &cpu.SystemTime, &cpu.IdleTime, &cpu.IOWaitTime,
+				&cpu.IRQTime, &cpu.SoftIRQTime, &cpu.StealTime, &cpu.GuestTime, &cpu.GuestNiceTime,
 			)
 			if err != nil {
 				return fmt.Errorf("%v", err)
@@ -229,20 +229,18 @@ func getPerCpuStat() error {
 // for the case when the metrics tui is started for the first time
 var cpuOld []float64
 
-// store the current cpu stat
-var currentCPU []float64
 var perc float64
 
 func CalculateCPUStat() (float64, error) {
 
-	cpu, err := getCPUstat()
+	getCPUOld, err := getCPUstat()
 	if err != nil {
 		return 0, err
 	}
 
 	if cpuOld == nil {
-		cpuOld = []float64{cpu.UserTime, cpu.NiceTime, cpu.SystemTime, cpu.IdleTime, cpu.IOWaitTime,
-			cpu.IRQTime, cpu.SoftIRQTime, cpu.StealTime, cpu.GuestTime, cpu.GuestNiceTime}
+		cpuOld = []float64{getCPUOld.UserTime, getCPUOld.NiceTime, getCPUOld.SystemTime, getCPUOld.IdleTime, getCPUOld.IOWaitTime,
+			getCPUOld.IRQTime, getCPUOld.SoftIRQTime, getCPUOld.StealTime, getCPUOld.GuestTime, getCPUOld.GuestNiceTime}
 	}
 
 	oldCPUSum := 0.0
@@ -257,10 +255,13 @@ func CalculateCPUStat() (float64, error) {
 	oldIdleTime := cpuOld[3] + cpuOld[4]
 	oldCPUTime := oldCPUSum - oldIdleTime
 
-	time.Sleep(time.Second * 1)
+	getCPUNew, err := getCPUstat()
+	if err != nil {
+		return 0, err
+	}
 	// initialise the current cpu with current values
-	currentCPU = []float64{cpu.UserTime, cpu.NiceTime, cpu.SystemTime, cpu.IdleTime, cpu.IOWaitTime,
-		cpu.IRQTime, cpu.SoftIRQTime, cpu.StealTime, cpu.GuestTime, cpu.GuestNiceTime}
+	currentCPU := []float64{getCPUNew.UserTime, getCPUNew.NiceTime, getCPUNew.SystemTime, getCPUNew.IdleTime, getCPUNew.IOWaitTime,
+		getCPUNew.IRQTime, getCPUNew.SoftIRQTime, getCPUNew.StealTime, getCPUNew.GuestTime, getCPUNew.GuestNiceTime}
 
 	// summation of all the time slices
 	currentCPUSum := 0.0
@@ -288,10 +289,23 @@ func CalculateCPUStat() (float64, error) {
 
 func CalculateCPUStatForMain() (float64, []float64, []float64, error) {
 
-	cpu, err := getCPUstat()
+	if cpuOld == nil {
+		getCPUOld, err := getCPUstat()
+		if err != nil {
+			return 0, []float64{}, []float64{}, err
+		}
+		cpuOld = []float64{getCPUOld.UserTime, getCPUOld.NiceTime, getCPUOld.SystemTime, getCPUOld.IdleTime, getCPUOld.IOWaitTime,
+			getCPUOld.IRQTime, getCPUOld.SoftIRQTime, getCPUOld.StealTime, getCPUOld.GuestTime, getCPUOld.GuestNiceTime}
+	}
+
+	time.Sleep(time.Second * 1)
+	getCPUNew, err := getCPUstat()
 	if err != nil {
 		return 0, []float64{}, []float64{}, err
 	}
+	// initialise the current cpu with current values
+	currentCPU := []float64{getCPUNew.UserTime, getCPUNew.NiceTime, getCPUNew.SystemTime, getCPUNew.IdleTime, getCPUNew.IOWaitTime,
+		getCPUNew.IRQTime, getCPUNew.SoftIRQTime, getCPUNew.StealTime, getCPUNew.GuestTime, getCPUNew.GuestNiceTime}
 
 	oldCPUSum := 0.0
 	for _, val := range cpuOld {
@@ -304,10 +318,6 @@ func CalculateCPUStatForMain() (float64, []float64, []float64, error) {
 	// separate out the idle and IOwait time
 	oldIdleTime := cpuOld[3] + cpuOld[4]
 	oldCPUTime := oldCPUSum - oldIdleTime
-
-	// initialise the current cpu with current values
-	currentCPU = []float64{cpu.UserTime, cpu.NiceTime, cpu.SystemTime, cpu.IdleTime, cpu.IOWaitTime,
-		cpu.IRQTime, cpu.SoftIRQTime, cpu.StealTime, cpu.GuestTime, cpu.GuestNiceTime}
 
 	// summation of all the time slices
 	currentCPUSum := 0.0
@@ -323,10 +333,9 @@ func CalculateCPUStatForMain() (float64, []float64, []float64, error) {
 
 	// calculate delta values
 	delCPUTime := totalCPUTime - oldCPUTime
-	// delIdleTime := totalIdleTime - oldIdleTime
 
 	// calculate utilization percentage
-	perc = (((delCPUTime) / delTotalTime) * 100)
+	perc = ((delCPUTime / delTotalTime) * 100)
 
 	cpuOld = currentCPU
 	return perc, cpuOld, currentCPU, nil
