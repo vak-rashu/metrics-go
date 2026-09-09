@@ -102,5 +102,3 @@ func GetDiskStats() (diskStat, error) {
 // this is also cumulative
 // these are the bytes read and written /sec
 // the disk throughput is this
-
-// identify how busy your disks are
