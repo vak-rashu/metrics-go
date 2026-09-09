@@ -15,6 +15,8 @@ type memStats struct {
 	MemAvailable uint64
 }
 
+// convert it to graphs
+// show swap details too -- show swapfile name in the present in the /proc/swaps
 func GetMemStats() {
 	path := procPath("meminfo")
 	file, err := openPath(path)
