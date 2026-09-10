@@ -48,7 +48,7 @@ func getNetStats() (receiveNetStat, transmittedNetStat, error) {
 
 		if line[0] == "eth0:" {
 			cnt, err := fmt.Sscanf(text,
-				"%s %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+				"%s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
 				&recNet.face, &recNet.bytes, &recNet.packets, &recNet.errs,
 				&recNet.drop, &recNet.fifo, &recNet.frame, &recNet.compressed, &recNet.multicast,
 				&transmNet.bytes, &transmNet.packets, &transmNet.errs, &transmNet.drop,
@@ -76,7 +76,7 @@ func getNetStats() (receiveNetStat, transmittedNetStat, error) {
 var packRec float64
 var packTransm float64
 
-func GetPacketsStat() float64 {
+func GetPacketsStat() (float64, float64, error) {
 	if packRec == 0 && packTransm == 0 {
 		oldrecPack, oldtransPack, err := getNetStats()
 		if err != nil {
@@ -88,5 +88,16 @@ func GetPacketsStat() float64 {
 	}
 
 	time.Sleep(time.Second * 1)
+	newrecPack, newtransPack, err := getNetStats()
+	if err != nil {
+		panic(err)
+	}
 
+	recPackDelta := newrecPack.packets - packRec
+	transmPackDelta := newtransPack.packets - packTransm
+
+	packRec = newrecPack.packets
+	packTransm = newtransPack.packets
+
+	return recPackDelta, transmPackDelta, nil
 }
