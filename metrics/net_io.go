@@ -4,32 +4,33 @@ import (
 	"bufio"
 	"fmt"
 	"strings"
+	"time"
 )
 
 type receiveNetStat struct {
 	face       string
-	bytes      uint64
-	packets    uint64
-	errs       uint64
-	drop       uint64
-	fifo       uint64
-	frame      uint64
-	compressed uint64
-	multicast  uint64
+	bytes      float64
+	packets    float64
+	errs       float64
+	drop       float64
+	fifo       float64
+	frame      float64
+	compressed float64
+	multicast  float64
 }
 
 type transmittedNetStat struct {
-	bytes      uint64
-	packets    uint64
-	errs       uint64
-	drop       uint64
-	fifo       uint64
-	colls      uint64
-	carrier    uint64
-	compressed uint64
+	bytes      float64
+	packets    float64
+	errs       float64
+	drop       float64
+	fifo       float64
+	colls      float64
+	carrier    float64
+	compressed float64
 }
 
-func GetNetStats() (receiveNetStat, transmittedNetStat, error) {
+func getNetStats() (receiveNetStat, transmittedNetStat, error) {
 
 	recNet := receiveNetStat{}
 	transmNet := transmittedNetStat{}
@@ -67,5 +68,25 @@ func GetNetStats() (receiveNetStat, transmittedNetStat, error) {
 		return receiveNetStat{}, transmittedNetStat{}, fmt.Errorf("error:%v", err)
 	}
 
-	return recNet, transmNet, fmt.Errorf("error:%v", err)
+	return recNet, transmNet, nil
+}
+
+// get netio stats for packets received and transmitted
+
+var packRec float64
+var packTransm float64
+
+func GetPacketsStat() float64 {
+	if packRec == 0 && packTransm == 0 {
+		oldrecPack, oldtransPack, err := getNetStats()
+		if err != nil {
+			panic(err)
+		}
+
+		packRec = oldrecPack.packets
+		packTransm = oldtransPack.packets
+	}
+
+	time.Sleep(time.Second * 1)
+
 }

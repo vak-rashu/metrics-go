@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // disk io creates the graph of
@@ -19,17 +20,17 @@ type diskStat struct {
 	minor          int
 	major          int
 	diskName       string
-	readsComp      uint64
-	readsMerged    uint64
-	sectorRead     uint64
-	readMiliSec    uint32
-	writesComp     uint64
-	writesMerged   uint64
-	sectorsWritten uint64
-	writeMiliSec   uint32
-	currIO         uint32
-	miliIO         uint32
-	// not adding remaining fields
+	readComps      float64
+	readsMerged    float64
+	sectorRead     float64
+	readMiliSec    float64
+	writesComp     float64
+	writesMerged   float64
+	sectorsWritten float64
+	writeMiliSec   float64
+	currIO         float64
+	miliIO         float64
+	// remaining fields are not added
 }
 
 // get the rootfs on the system
@@ -68,9 +69,9 @@ func GetDiskStats() (diskStat, error) {
 
 		if line[2] == mntsRoot {
 			cnt, err := fmt.Sscanf(text,
-				"%d %d %s %d %d %d %d %d %d %d %d %d %d",
+				"%d %d %s %f %f %f %f %f %f %f %f %f %f",
 				&disk.minor, &disk.major, &disk.diskName,
-				&disk.readsComp, &disk.readsMerged, &disk.sectorRead,
+				&disk.readComps, &disk.readsMerged, &disk.sectorRead,
 				&disk.readMiliSec, &disk.writesComp, &disk.writesMerged,
 				&disk.sectorsWritten, &disk.writeMiliSec,
 				&disk.currIO, &disk.miliIO,
@@ -89,5 +90,61 @@ func GetDiskStats() (diskStat, error) {
 		return diskStat{}, fmt.Errorf("error:%v", err)
 	}
 
-	return disk, fmt.Errorf("error:%v", err)
+	return disk, nil
+}
+
+// get stats for disk IOPS to
+// calculate how much IO is happening
+// by the system per second
+
+var oldreadComp float64
+
+func GetDiskReadIOPS() (float64, error) {
+
+	if oldreadComp == 0 {
+		olddisk, err := GetDiskStats()
+		if err != nil {
+			return 0.0, err
+		}
+
+		oldreadComp = olddisk.readComps
+	}
+
+	time.Sleep(time.Second * 1)
+	newDisk, err := GetDiskStats()
+	if err != nil {
+		return 0.0, err
+	}
+
+	diskDelta := newDisk.readComps - oldreadComp
+
+	oldreadComp = newDisk.readComps
+
+	return diskDelta, nil
+}
+
+var oldwriteComp float64
+
+func GetDiskWriteIOPS() (float64, error) {
+
+	if oldwriteComp == 0 {
+		olddisk, err := GetDiskStats()
+		if err != nil {
+			return 0.0, err
+		}
+
+		oldwriteComp = olddisk.writesComp
+	}
+
+	time.Sleep(time.Second * 1)
+	newDisk, err := GetDiskStats()
+	if err != nil {
+		return 0.0, err
+	}
+
+	diskDelta := newDisk.writesComp - oldwriteComp
+
+	oldwriteComp = newDisk.writesComp
+
+	return diskDelta, nil
 }
