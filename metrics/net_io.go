@@ -6,10 +6,6 @@ import (
 	"strings"
 )
 
-// display graph of the bytes received and transmit
-// packets recieved and transmit
-// for each nic
-
 type receiveNetStat struct {
 	face       string
 	bytes      uint64
