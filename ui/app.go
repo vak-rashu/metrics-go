@@ -13,13 +13,56 @@ func CreateChart() {
 	height := 12
 
 	m := model{
-		s5: sparkline.New(width, height/4, sparkline.WithMaxValue(100.0), sparkline.WithStyle(blockStyle4))}
+		cpu: sparkline.New(
+			width,
+			height/4,
+			sparkline.WithMaxValue(100.0),
+			sparkline.WithStyle(blockStyle4),
+		),
+
+		diskRead: sparkline.New(
+			width,
+			height/4,
+			sparkline.WithStyle(blockStyle4),
+		),
+
+		diskWrite: sparkline.New(
+			width,
+			height/4,
+			sparkline.WithStyle(blockStyle4),
+		),
+
+		netRX: sparkline.New(
+			width,
+			height/4,
+			sparkline.WithStyle(blockStyle4),
+		),
+
+		netTX: sparkline.New(
+			width,
+			height/4,
+			sparkline.WithStyle(blockStyle4),
+		),
+	}
 
 	if err := booba.Run(m); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}
 }
+
+// func CreateChart() {
+// 	width := 25
+// 	height := 12
+
+// 	m := model{
+// 		s5: sparkline.New(width, height/4, sparkline.WithMaxValue(100.0), sparkline.WithStyle(blockStyle4))}
+
+// 	if err := booba.Run(m); err != nil {
+// 		fmt.Println("Error running program:", err)
+// 		os.Exit(1)
+// 	}
+// }
 
 // old function for cli
 

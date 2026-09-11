@@ -2,20 +2,23 @@ package metrics
 
 import (
 	"bufio"
-	"fmt"
-	"os"
+	"strconv"
 	"strings"
 )
 
 // represents the following values only right now:
 // MemTotal , MemFree, MemAvailable
 type memStats struct {
-	memTotal     uint64
-	memFree      uint64
-	MemAvailable uint64
+	memTotal     string
+	memFree      string
+	MemAvailable string
 }
 
-func GetMemStats() {
+var total int
+var free int
+var avail int
+
+func GetMemStats() (int, int, int) {
 	path := procPath("meminfo")
 	file, err := openPath(path)
 	if err != nil {
@@ -29,21 +32,28 @@ func GetMemStats() {
 		line := strings.Fields(text)
 
 		if line[0] == "MemTotal:" {
-			if cnt, _ := fmt.Sscanf(line[1], "%d", &memInfo.memTotal); cnt < 0 {
-				os.Exit(1)
-			}
+			memInfo.memTotal = line[1]
+			total, _ = strconv.Atoi(memInfo.memTotal)
+			total /= 1000000
 		}
 		if line[0] == "MemFree:" {
-			if cnt, _ := fmt.Sscanf(line[1], "%d", &memInfo.memFree); cnt < 0 {
-				os.Exit(1)
-			}
+			// if cnt, _ := fmt.Sscanf(text, "%f", &memInfo.memFree); cnt < 0 {
+			// 	fmt.Print(memInfo.memFree)
+			// 	os.Exit(1)
+			// }
+			memInfo.memFree = line[1]
+			free, _ = strconv.Atoi(memInfo.memFree)
+			free /= 1000000
 		}
 		if line[0] == "MemAvailable:" {
-			if cnt, _ := fmt.Sscanf(line[1], "%d", &memInfo.MemAvailable); cnt < 0 {
-				os.Exit(1)
-			}
+			memInfo.MemAvailable = line[1]
+			avail, _ = strconv.Atoi(memInfo.MemAvailable)
+			avail /= 1000000
+			// if cnt, _ := fmt.Sscanf(text, "%s %s %f", &a, &b, &memInfo.MemAvailable); cnt < 0 {
+			// 	os.Exit(1)
+			// }
 		}
 	}
-	fmt.Println(memInfo.memFree, memInfo.memTotal, memInfo.MemAvailable)
 	scanner.Err()
+	return total, free, avail
 }

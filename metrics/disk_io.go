@@ -137,6 +137,7 @@ func GetDiskWriteIOPS() (float64, error) {
 	}
 
 	time.Sleep(time.Second * 1)
+
 	newDisk, err := GetDiskStats()
 	if err != nil {
 		return 0.0, err

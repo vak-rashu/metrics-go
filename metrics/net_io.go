@@ -88,6 +88,7 @@ func GetPacketsStat() (float64, float64, error) {
 	}
 
 	time.Sleep(time.Second * 1)
+
 	newrecPack, newtransPack, err := getNetStats()
 	if err != nil {
 		panic(err)
