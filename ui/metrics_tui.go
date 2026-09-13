@@ -1,4 +1,301 @@
-// // cmd: metrics tui
+// cmd: metrics tui
+
+package tui
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/NimbleMarkets/ntcharts/v2/sparkline"
+	metrics "github.com/vak-rashu/metrics-go/metrics"
+
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
+)
+
+type tickMsg time.Time
+
+var defaultStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("63"))
+
+// CPU gets its own bright, high-contrast style so it doesn't disappear.
+var cpuStyle = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("3")) // yellow
+
+var diskReadStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))  // green
+var diskWriteStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("1")) // red
+var netRXStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))     // cyan
+var netTXStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))     // magenta
+
+type model struct {
+	cpu sparkline.Model
+
+	diskRead  sparkline.Model
+	diskWrite sparkline.Model
+
+	netRX sparkline.Model
+	netTX sparkline.Model
+
+	cpuPerc float64
+
+	diskReadIOPS  float64
+	diskWriteIOPS float64
+
+	netRXPackets float64
+	netTXPackets float64
+
+	memTotal     float64
+	memFree      float64
+	memAvailable float64
+}
+
+// NewModel builds the tui with each sparkline explicitly sized and colored.
+// Wire this into main.go, e.g. tea.NewProgram(tui.NewModel()), instead of
+// a bare model{} — that's what was leaving the sparklines at 0x0 with no
+// style, which is why the CPU graph was basically invisible.
+func NewModel() model {
+	const width = 40
+
+	return model{
+		// Give CPU extra height since it's the primary metric you're
+		// watching — a taller sparkline makes small % swings much easier
+		// to see.
+		cpu: sparkline.New(width, 3, sparkline.WithStyle(cpuStyle)),
+
+		diskRead:  sparkline.New(width, 2, sparkline.WithStyle(diskReadStyle)),
+		diskWrite: sparkline.New(width, 2, sparkline.WithStyle(diskWriteStyle)),
+
+		netRX: sparkline.New(width, 2, sparkline.WithStyle(netRXStyle)),
+		netTX: sparkline.New(width, 2, sparkline.WithStyle(netTXStyle)),
+	}
+}
+
+func doTick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+func (m model) Init() tea.Cmd {
+	return doTick()
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		}
+
+	case tickMsg:
+
+		// ---------------- CPU ----------------
+		cpuPerc, err := metrics.CalculateCPUStatPerc()
+		if err != nil {
+			fmt.Println("CPU:", err)
+		} else {
+			m.cpuPerc = cpuPerc
+			m.cpu.Push(cpuPerc)
+			m.cpu.DrawBraille()
+		}
+
+		// ---------------- DISK READ ----------------
+		readIOPS, err := metrics.GetDiskReadIOPS()
+		if err != nil {
+			fmt.Println("Disk read:", err)
+		} else {
+			m.diskReadIOPS = readIOPS
+			m.diskRead.Push(readIOPS)
+			m.diskRead.DrawBraille()
+		}
+
+		// ---------------- DISK WRITE ----------------
+		writeIOPS, err := metrics.GetDiskWriteIOPS()
+		if err != nil {
+			fmt.Println("Disk write:", err)
+		} else {
+			m.diskWriteIOPS = writeIOPS
+			m.diskWrite.Push(writeIOPS)
+			m.diskWrite.DrawBraille()
+		}
+
+		// ---------------- NETWORK ----------------
+		rxPackets, txPackets, err := metrics.GetPacketsStat()
+		if err != nil {
+			fmt.Println("Network:", err)
+		} else {
+			m.netRXPackets = rxPackets
+			m.netTXPackets = txPackets
+			m.netRX.Push(rxPackets)
+			m.netTX.Push(txPackets)
+			m.netRX.DrawBraille()
+			m.netTX.DrawBraille()
+		}
+
+		// ---------------- MEMORY ----------------
+		rxPackets, txPackets, err := metrics.GetPacketsStat()
+		if err != nil {
+			fmt.Println("Network:", err)
+		} else {
+			m.netRXPackets = rxPackets
+			m.netTXPackets = txPackets
+			m.netRX.Push(rxPackets)
+			m.netTX.Push(txPackets)
+			m.netRX.DrawBraille()
+			m.netTX.DrawBraille()
+		}
+	}
+
+	return m, doTick()
+}
+
+func (m model) View() tea.View {
+
+	const panelWidth = 48
+
+	// ---------------- CPU ----------------
+	cpuPanel := defaultStyle.Width(panelWidth).Render(
+		fmt.Sprintf(
+			"CPU\n"+
+				"Active: %.2f%%\n\n"+
+				"%s",
+			m.cpuPerc,
+			m.cpu.View(),
+		),
+	)
+
+	// ---------------- MEMORY ----------------
+	memPanel := defaultStyle.Width(panelWidth).Render(
+		fmt.Sprintf(
+			"Memory\n\n"+
+				"Total:     %.2f MB\n"+
+				"Free:      %.2f MB\n"+
+				"Available: %.2f MB",
+			m.memTotal,
+			m.memFree,
+			m.memAvailable,
+		),
+	)
+
+	// ---------------- DISK ----------------
+	diskPanel := defaultStyle.Width(panelWidth).Render(
+		fmt.Sprintf(
+			"Disk I/O\n\n"+
+				"Read IOPS:  %.0f\n"+
+				"Write IOPS: %.0f\n\n"+
+				"Read\n"+
+				"%s\n\n"+
+				"Write\n"+
+				"%s",
+			m.diskReadIOPS,
+			m.diskWriteIOPS,
+			m.diskRead.View(),
+			m.diskWrite.View(),
+		),
+	)
+
+	// ---------------- NETWORK ----------------
+	networkPanel := defaultStyle.Width(panelWidth).Render(
+		fmt.Sprintf(
+			"Network\n\n"+
+				"RX: %.0f packets/s\n"+
+				"TX: %.0f packets/s\n\n"+
+				"RX\n"+
+				"%s\n\n"+
+				"TX\n"+
+				"%s",
+			m.netRXPackets,
+			m.netTXPackets,
+			m.netRX.View(),
+			m.netTX.View(),
+		),
+	)
+
+	// ---------------- 2 × 2 LAYOUT ----------------
+	topRow := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		cpuPanel,
+		memPanel,
+	)
+
+	bottomRow := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		diskPanel,
+		networkPanel,
+	)
+
+	// Put the two rows together.
+	dashboard := lipgloss.JoinVertical(
+		lipgloss.Left,
+		topRow,
+		"",
+		bottomRow,
+	)
+
+	return tea.NewView(dashboard)
+}
+
+// 	s := "\n"
+
+// 	s += defaultStyle.Render(
+// 		fmt.Sprintf(
+// 			"CPU Active: %.2f%%\n\nCPU\n%s",
+// 			m.cpuPerc,
+// 			m.cpu.View(),
+// 		),
+// 	)
+
+// 	s += "\n\n"
+
+// 	s += defaultStyle.Render(
+// 		fmt.Sprintf(
+// 			"Disk I/O\n"+
+// 				"Read IOPS:  %.0f\n"+
+// 				"Write IOPS: %.0f\n\n"+
+// 				"Read\n%s\n\n"+
+// 				"Write\n%s",
+// 			m.diskReadIOPS,
+// 			m.diskWriteIOPS,
+// 			m.diskRead.View(),
+// 			m.diskWrite.View(),
+// 		),
+// 	)
+
+// 	s += "\n\n"
+
+// 	s += defaultStyle.Render(
+// 		fmt.Sprintf(
+// 			"Network Packet Rate\n"+
+// 				"RX: %.0f packets/s\n"+
+// 				"TX: %.0f packets/s\n\n"+
+// 				"RX\n%s\n\n"+
+// 				"TX\n%s",
+// 			m.netRXPackets,
+// 			m.netTXPackets,
+// 			m.netRX.View(),
+// 			m.netTX.View(),
+// 		),
+// 	)
+
+// 	s += "\n\n"
+
+// 	s += defaultStyle.Render(
+// 		fmt.Sprintf(
+// 			"Memory\n"+
+// 				"Total: %.2f MB\n"+
+// 				"Free: %.2f MB\n"+
+// 				"Available: %.2f MB",
+// 			m.memTotal,
+// 			m.memFree,
+// 			m.memAvailable,
+// 		),
+// 	)
+
+// 	return tea.NewView(s)
+// }
 
 // package tui
 
@@ -76,187 +373,187 @@
 
 // cmd: metrics tui
 
-package tui
+// import (
+// 	"fmt"
+// 	"time"
 
-import (
-	"fmt"
-	"time"
+// 	"github.com/NimbleMarkets/ntcharts/v2/sparkline"
+// 	metrics "github.com/vak-rashu/metrics-go/metrics"
 
-	"github.com/NimbleMarkets/ntcharts/v2/sparkline"
-	metrics "github.com/vak-rashu/metrics-go/metrics"
+// 	tea "charm.land/bubbletea/v2"
+// 	"charm.land/lipgloss/v2"
+// )
 
-	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
-)
+// type tickMsg time.Time
 
-type tickMsg time.Time
+// var defaultStyle = lipgloss.NewStyle().
+// 	BorderStyle(lipgloss.NormalBorder()).
+// 	BorderForeground(lipgloss.Color("63"))
 
-var defaultStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("63"))
+// var blockStyle4 = lipgloss.NewStyle().
+// 	Foreground(lipgloss.Color("3")) // yellow
 
-var blockStyle4 = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("3")) // yellow
+// type model struct {
+// 	cpu sparkline.Model
 
-type model struct {
-	cpu sparkline.Model
+// 	// Disk
+// 	diskRead  sparkline.Model
+// 	diskWrite sparkline.Model
 
-	// Disk
-	diskRead  sparkline.Model
-	diskWrite sparkline.Model
+// 	// Network
+// 	netRX sparkline.Model
+// 	netTX sparkline.Model
 
-	// Network
-	netRX sparkline.Model
-	netTX sparkline.Model
+// 	// Current values
+// 	cpuPerc float64
 
-	// Current values
-	cpuPerc float64
+// 	diskReadIOPS  float64
+// 	diskWriteIOPS float64
 
-	diskReadIOPS  float64
-	diskWriteIOPS float64
+// 	netRXPackets float64
+// 	netTXPackets float64
 
-	netRXPackets float64
-	netTXPackets float64
+// 	// Memory
+// 	memTotal     float64
+// 	memFree      float64
+// 	memAvailable float64
+// }
 
-	// Memory
-	memTotal     float64
-	memFree      float64
-	memAvailable float64
-}
+// func doTick() tea.Cmd {
+// 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+// 		return tickMsg(t)
+// 	})
+// }
 
-func doTick() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
-}
+// func (m model) Init() tea.Cmd {
+// 	return doTick()
+// }
 
-func (m model) Init() tea.Cmd {
-	return doTick()
-}
+// func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// 	switch msg := msg.(type) {
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
+// 	case tea.KeyMsg:
+// 		switch msg.String() {
+// 		case "q", "ctrl+c":
+// 			return m, tea.Quit
+// 		}
 
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		}
+// 	case tickMsg:
 
-	case tickMsg:
+// 		// ---------------- CPU ----------------
+// 		cpuPerc, err := metrics.CalculateCPUStatPerc()
+// 		if err != nil {
+// 			fmt.Println("CPU:", err)
+// 		} else {
+// 			m.cpuPerc = cpuPerc
 
-		// ---------------- CPU ----------------
-		cpuPerc, err := metrics.CalculateCPUStatPerc()
-		if err != nil {
-			fmt.Println("CPU:", err)
-		} else {
-			m.cpuPerc = cpuPerc
+// 			m.cpu.Push(cpuPerc)
+// 			m.cpu.DrawBraille()
+// 		}
 
-			m.cpu.Push(cpuPerc)
-			m.cpu.DrawBraille()
-		}
+// 		// ---------------- DISK READ ----------------
+// 		readIOPS, err := metrics.GetDiskReadIOPS()
+// 		if err != nil {
+// 			fmt.Println("Disk read:", err)
+// 		} else {
+// 			m.diskReadIOPS = readIOPS
 
-		// ---------------- DISK READ ----------------
-		readIOPS, err := metrics.GetDiskReadIOPS()
-		if err != nil {
-			fmt.Println("Disk read:", err)
-		} else {
-			m.diskReadIOPS = readIOPS
+// 			m.diskRead.Push(readIOPS)
+// 			m.diskRead.DrawBraille()
+// 		}
 
-			m.diskRead.Push(readIOPS)
-			m.diskRead.DrawBraille()
-		}
+// 		// ---------------- DISK WRITE ----------------
+// 		writeIOPS, err := metrics.GetDiskWriteIOPS()
+// 		if err != nil {
+// 			fmt.Println("Disk write:", err)
+// 		} else {
+// 			m.diskWriteIOPS = writeIOPS
 
-		// ---------------- DISK WRITE ----------------
-		writeIOPS, err := metrics.GetDiskWriteIOPS()
-		if err != nil {
-			fmt.Println("Disk write:", err)
-		} else {
-			m.diskWriteIOPS = writeIOPS
+// 			m.diskWrite.Push(writeIOPS)
+// 			m.diskWrite.DrawBraille()
+// 		}
 
-			m.diskWrite.Push(writeIOPS)
-			m.diskWrite.DrawBraille()
-		}
+// 		// ---------------- NETWORK ----------------
+// 		rxPackets, txPackets, err := metrics.GetPacketsStat()
+// 		if err != nil {
+// 			fmt.Println("Network:", err)
+// 		} else {
+// 			m.netRXPackets = rxPackets
+// 			m.netTXPackets = txPackets
 
-		// ---------------- NETWORK ----------------
-		rxPackets, txPackets, err := metrics.GetPacketsStat()
-		if err != nil {
-			fmt.Println("Network:", err)
-		} else {
-			m.netRXPackets = rxPackets
-			m.netTXPackets = txPackets
+// 			m.netRX.Push(rxPackets)
+// 			m.netTX.Push(txPackets)
 
-			m.netRX.Push(rxPackets)
-			m.netTX.Push(txPackets)
+// 			m.netRX.DrawBraille()
+// 			m.netTX.DrawBraille()
+// 		}
+// 	}
 
-			m.netRX.DrawBraille()
-			m.netTX.DrawBraille()
-		}
-	}
+// 	return m, doTick()
+// }
 
-	return m, doTick()
-}
+// func (m model) View() tea.View {
+// 	s := ""
 
-func (m model) View() tea.View {
-	s := ""
+// 	// CPU
+// 	s += defaultStyle.Render(
+// 		fmt.Sprintf(
+// 			"CPU Active: %.2f%%\n\nCPU\n%s",
+// 			m.cpuPerc,
+// 			m.cpu.View(),
+// 		),
+// 	)
 
-	// CPU
-	s += defaultStyle.Render(
-		fmt.Sprintf(
-			"CPU Active: %.2f%%\n\nCPU\n%s",
-			m.cpuPerc,
-			m.cpu.View(),
-		),
-	)
+// 	s += "\n\n"
 
-	s += "\n\n"
+// 	// DISK
+// 	s += defaultStyle.Render(
+// 		fmt.Sprintf(
+// 			"Disk I/O\n"+
+// 				"Read IOPS:  %.0f\n"+
+// 				"Write IOPS: %.0f\n\n"+
+// 				"Read\n%s\n\n"+
+// 				"Write\n%s",
+// 			m.diskReadIOPS,
+// 			m.diskWriteIOPS,
+// 			m.diskRead.View(),
+// 			m.diskWrite.View(),
+// 		),
+// 	)
 
-	// DISK
-	s += defaultStyle.Render(
-		fmt.Sprintf(
-			"Disk I/O\n"+
-				"Read IOPS:  %.0f\n"+
-				"Write IOPS: %.0f\n\n"+
-				"Read\n%s\n\n"+
-				"Write\n%s",
-			m.diskReadIOPS,
-			m.diskWriteIOPS,
-			m.diskRead.View(),
-			m.diskWrite.View(),
-		),
-	)
+// 	s += "\n\n"
 
-	s += "\n\n"
+// 	// NETWORK
+// 	s += defaultStyle.Render(
+// 		fmt.Sprintf(
+// 			"Network Packet Rate\n"+
+// 				"RX: %.0f packets/s\n"+
+// 				"TX: %.0f packets/s\n\n"+
+// 				"RX\n%s\n\n"+
+// 				"TX\n%s",
+// 			m.netRXPackets,
+// 			m.netTXPackets,
+// 			m.netRX.View(),
+// 			m.netTX.View(),
+// 		),
+// 	)
 
-	// NETWORK
-	s += defaultStyle.Render(
-		fmt.Sprintf(
-			"Network Packet Rate\n"+
-				"RX: %.0f packets/s\n"+
-				"TX: %.0f packets/s\n\n"+
-				"RX\n%s\n\n"+
-				"TX\n%s",
-			m.netRXPackets,
-			m.netTXPackets,
-			m.netRX.View(),
-			m.netTX.View(),
-		),
-	)
+// 	s += "\n\n"
 
-	s += "\n\n"
+// 	// MEMORY
+// 	s += defaultStyle.Render(
+// 		fmt.Sprintf(
+// 			"Memory\n"+
+// 				"Total: %.2f MB\n"+
+// 				"Free: %.2f MB\n"+
+// 				"Available: %.2f MB",
+// 			m.memTotal,
+// 			m.memFree,
+// 			m.memAvailable,
+// 		),
+// 	)
 
-	// MEMORY
-	s += defaultStyle.Render(
-		fmt.Sprintf(
-			"Memory\n"+
-				"Total: %.2f MB\n"+
-				"Free: %.2f MB\n"+
-				"Available: %.2f MB",
-			m.memTotal,
-			m.memFree,
-			m.memAvailable,
-		),
-	)
+// 	return tea.NewView(s)
+// }
 
-	return tea.NewView(s)
-}
+// package tui

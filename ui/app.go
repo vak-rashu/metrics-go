@@ -17,31 +17,31 @@ func CreateChart() {
 			width,
 			height/4,
 			sparkline.WithMaxValue(100.0),
-			sparkline.WithStyle(blockStyle4),
+			sparkline.WithStyle(cpuStyle),
 		),
 
 		diskRead: sparkline.New(
 			width,
 			height/4,
-			sparkline.WithStyle(blockStyle4),
+			sparkline.WithStyle(diskReadStyle),
 		),
 
 		diskWrite: sparkline.New(
 			width,
 			height/4,
-			sparkline.WithStyle(blockStyle4),
+			sparkline.WithStyle(diskWriteStyle),
 		),
 
 		netRX: sparkline.New(
 			width,
 			height/4,
-			sparkline.WithStyle(blockStyle4),
+			sparkline.WithStyle(netRXStyle),
 		),
 
 		netTX: sparkline.New(
 			width,
 			height/4,
-			sparkline.WithStyle(blockStyle4),
+			sparkline.WithStyle(netTXStyle),
 		),
 	}
 
