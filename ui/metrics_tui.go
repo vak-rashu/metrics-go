@@ -45,9 +45,9 @@ type model struct {
 	netRXPackets float64
 	netTXPackets float64
 
-	memTotal     float64
-	memFree      float64
-	memAvailable float64
+	memTotal     int
+	memFree      int
+	memAvailable int
 }
 
 // NewModel builds the tui with each sparkline explicitly sized and colored.
@@ -136,16 +136,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// ---------------- MEMORY ----------------
-		rxPackets, txPackets, err := metrics.GetPacketsStat()
+		t, f, a, err := metrics.GetMemStats()
 		if err != nil {
-			fmt.Println("Network:", err)
+			fmt.Println("Memory:", err)
 		} else {
-			m.netRXPackets = rxPackets
-			m.netTXPackets = txPackets
-			m.netRX.Push(rxPackets)
-			m.netTX.Push(txPackets)
-			m.netRX.DrawBraille()
-			m.netTX.DrawBraille()
+			m.memTotal = t
+			m.memFree = f
+			m.memAvailable = a
 		}
 	}
 
@@ -171,9 +168,9 @@ func (m model) View() tea.View {
 	memPanel := defaultStyle.Width(panelWidth).Render(
 		fmt.Sprintf(
 			"Memory\n\n"+
-				"Total:     %.2f MB\n"+
-				"Free:      %.2f MB\n"+
-				"Available: %.2f MB",
+				"Total:     %d GB\n"+
+				"Free:      %d GB\n"+
+				"Available: %d GB",
 			m.memTotal,
 			m.memFree,
 			m.memAvailable,
