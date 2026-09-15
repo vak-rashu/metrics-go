@@ -19,24 +19,7 @@ METRICS currently monitors four major areas of system activity:
 CPU utilization is calculated from the cumulative CPU-time counters exposed through `/proc/stat`. METRICS periodically samples these counters and uses the difference between consecutive snapshots to determine CPU utilization over the sampling interval.
 
 <!-- Add CPU image here -->
-<img width="1252" height="542" alt="Screenshot 2026-09-13 224128" src="https://github.com/user-attachments/assets/5a830995-dbe1-45d3-bb3e-629d0f2194fa" /><img width="635" height="157" alt="Screenshot 2026-09-13 224118" src="https://github.com/user-attachments/assets/a903ff4d-5b26-4bf1-b63a-7f23fb90384c" />
-
-
-
-![Uploading Screenshot 2026-09-13 224118.png…]()
-
-
-
-
-<img width="651" height="362" alt="Screenshot 2026-09-13 221123" src="https://github.com/user-attachments/assets/3df7f0cf-ccf1-4df5-aef8-be6aa6080390" />
-
-
-<img width="651" height="362" alt="Screenshot 2026-09-13 221123" src="https://github.com/user-attachments/assets/1c523f34-4ee5-4394-b68a-11555927cf7d" />
-<img width="625" height="547" alt="Screenshot 2026-09-13 221101" src="https://github.com/user-attachments/assets/e8ce93af-e97c-4953-ab13-f5e3931e8790" />
-
-![Uploading Screenshot 2026-09-13 221123.png…]()
-
-
+<img width="390" height="163" alt="Screenshot 2026-09-15 193951" src="https://github.com/user-attachments/assets/fbcbbe6c-b608-4835-b446-c59c23a3e67d" />
 
 <br>
 
@@ -45,8 +28,7 @@ CPU utilization is calculated from the cumulative CPU-time counters exposed thro
 Disk activity is collected from `/proc/diskstats`. Cumulative read and write operation counters are converted into read and write IOPS using periodic snapshots.
 
 <!-- Add Disk image here -->
-<!-- ![Disk I/O Monitoring](assets/disk.png) -->
-
+<img width="360" height="337" alt="Screenshot 2026-09-15 193930" src="https://github.com/user-attachments/assets/9157acc9-ffb0-444b-9c71-81feee5d391d" />
 <br>
 
 ### Network
@@ -54,8 +36,7 @@ Disk activity is collected from `/proc/diskstats`. Cumulative read and write ope
 Network statistics are collected from `/proc/net/dev`. METRICS currently tracks packets received and transmitted by the network interface and converts the cumulative counters into packets-per-second rates.
 
 <!-- Add Network image here -->
-<!-- ![Network Monitoring](assets/network.png) -->
-
+<img width="360" height="337" alt="Screenshot 2026-09-15 193918" src="https://github.com/user-attachments/assets/17b7767e-78a4-4510-b716-7c03e9d1d7c0" />
 <br>
 
 ### Memory
@@ -63,8 +44,7 @@ Network statistics are collected from `/proc/net/dev`. METRICS currently tracks 
 Memory statistics are read directly from `/proc/meminfo`, providing the current total, free, and available memory on the system.
 
 <!-- Add Memory image here -->
-<!-- ![Memory Monitoring](assets/memory.png) -->
-
+<img width="635" height="157" alt="Screenshot 2026-09-13 224118" src="https://github.com/user-attachments/assets/924dc9a7-7765-4e84-8d07-67646d71b253" />
 ---
 
 ## How It Works
