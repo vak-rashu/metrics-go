@@ -1,77 +1,85 @@
-# METRICS: STREAMLINE YOUR SYSTEM INSIGHTS
+## Introduction
 
 METRICS is a lightweight, terminal-based system monitoring tool written in Go, designed to provide clear and accessible insights into system performance without the complexity of a full monitoring stack.
 
-## Introduction
+When working with environments such as WSL, lightweight servers, or development machines, traditional monitoring solutions can sometimes feel unnecessarily heavy. Full observability stacks such as Prometheus and Grafana are powerful, but they also introduce additional setup and infrastructure.
 
-When working with environments such as **WSL, lightweight servers, or development machines**, traditional monitoring solutions can sometimes feel unnecessarily heavy for the problem at hand. Full observability stacks such as **Prometheus + Grafana** are powerful, but they also introduce additional setup, configuration, and infrastructure.
-
-METRICS takes a simpler approach.
-
-Instead of relying on a large monitoring stack, METRICS reads system statistics directly from **Linux procfs** and presents them through a lightweight terminal UI.
-
-The goal is simple:
+METRICS takes a simpler approach by reading system statistics directly from Linux procfs and presenting them through a lightweight terminal UI.
 
 > **Understand what is happening on your system without unnecessary complexity.**
 
-### Key Highlights
-
-- **Lightweight:** Runs directly in the terminal with minimal setup.
-- **Linux-native:** Reads system statistics directly from `/proc`.
-- **Real-time monitoring:** Periodically samples system statistics and updates the TUI.
-- **Simple visualization:** Uses terminal-based sparklines to visualize changing metrics.
-- **No external monitoring stack:** No Prometheus server, Grafana instance, or exporters required.
-
 ---
 
-## Features
+## Monitoring System Resources
+
+METRICS currently monitors four major areas of system activity:
 
 ### CPU
 
-- Overall CPU utilization
-- Uses cumulative CPU counters from `/proc/stat`
-- Calculates utilization using counter deltas between samples
+CPU utilization is calculated from the cumulative CPU-time counters exposed through `/proc/stat`. METRICS periodically samples these counters and uses the difference between consecutive snapshots to determine CPU utilization over the sampling interval.
+
+<!-- Add CPU image here -->
+<img width="1252" height="542" alt="Screenshot 2026-09-13 224128" src="https://github.com/user-attachments/assets/5a830995-dbe1-45d3-bb3e-629d0f2194fa" /><img width="635" height="157" alt="Screenshot 2026-09-13 224118" src="https://github.com/user-attachments/assets/a903ff4d-5b26-4bf1-b63a-7f23fb90384c" />
+
+
+
+![Uploading Screenshot 2026-09-13 224118.png…]()
+
+
+
+
+<img width="651" height="362" alt="Screenshot 2026-09-13 221123" src="https://github.com/user-attachments/assets/3df7f0cf-ccf1-4df5-aef8-be6aa6080390" />
+
+
+<img width="651" height="362" alt="Screenshot 2026-09-13 221123" src="https://github.com/user-attachments/assets/1c523f34-4ee5-4394-b68a-11555927cf7d" />
+<img width="625" height="547" alt="Screenshot 2026-09-13 221101" src="https://github.com/user-attachments/assets/e8ce93af-e97c-4953-ab13-f5e3931e8790" />
+
+![Uploading Screenshot 2026-09-13 221123.png…]()
+
+
+
+<br>
 
 ### Disk I/O
 
-- Read IOPS
-- Write IOPS
-- Reads cumulative disk statistics from `/proc/diskstats`
+Disk activity is collected from `/proc/diskstats`. Cumulative read and write operation counters are converted into read and write IOPS using periodic snapshots.
+
+<!-- Add Disk image here -->
+<!-- ![Disk I/O Monitoring](assets/disk.png) -->
+
+<br>
 
 ### Network
 
-- Packets received per second
-- Packets transmitted per second
-- Reads interface statistics from `/proc/net/dev`
+Network statistics are collected from `/proc/net/dev`. METRICS currently tracks packets received and transmitted by the network interface and converts the cumulative counters into packets-per-second rates.
+
+<!-- Add Network image here -->
+<!-- ![Network Monitoring](assets/network.png) -->
+
+<br>
 
 ### Memory
 
-- Total memory
-- Free memory
-- Available memory
-- Reads current memory statistics from `/proc/meminfo`
+Memory statistics are read directly from `/proc/meminfo`, providing the current total, free, and available memory on the system.
+
+<!-- Add Memory image here -->
+<!-- ![Memory Monitoring](assets/memory.png) -->
 
 ---
 
 ## How It Works
 
-Linux exposes a large amount of system information through `procfs`.
-
-METRICS uses these interfaces as its data source:
+Linux exposes system information through several procfs interfaces:
 
 ```text
 /proc/stat
-      │
-      └── CPU statistics
+    └── CPU statistics
 
 /proc/diskstats
-      │
-      └── Disk I/O statistics
+    └── Disk I/O statistics
 
 /proc/net/dev
-      │
-      └── Network statistics
+    └── Network statistics
 
 /proc/meminfo
-      │
-      └── Memory statistics
+    └── Memory statistics
