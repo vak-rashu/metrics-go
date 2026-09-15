@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type CPUStat struct {
@@ -231,74 +230,20 @@ var cpuOld []float64
 
 var perc float64
 
-func CalculateCPUStatForMain() (float64, []float64, []float64, error) {
-
-	getCPUOld, err := getCPUstat()
-	if err != nil {
-		return 0, []float64{}, []float64{}, err
-	}
-
-	if cpuOld == nil {
-		cpuOld = []float64{getCPUOld.UserTime, getCPUOld.NiceTime, getCPUOld.SystemTime, getCPUOld.IdleTime, getCPUOld.IOWaitTime,
-			getCPUOld.IRQTime, getCPUOld.SoftIRQTime, getCPUOld.StealTime, getCPUOld.GuestTime, getCPUOld.GuestNiceTime}
-	}
-
-	oldCPUSum := 0.0
-	for _, val := range cpuOld {
-		oldCPUSum += val
-	}
-
-	// after subtracting guest and guest nice time
-	oldCPUSum -= (cpuOld[8] + cpuOld[9])
-
-	// separate out the idle and IOwait time
-	oldIdleTime := cpuOld[3] + cpuOld[4]
-	oldCPUTime := oldCPUSum - oldIdleTime
-
-	getCPUNew, err := getCPUstat()
-	if err != nil {
-		return 0, []float64{}, []float64{}, err
-	}
-	// initialise the current cpu with current values
-	currentCPU := []float64{getCPUNew.UserTime, getCPUNew.NiceTime, getCPUNew.SystemTime, getCPUNew.IdleTime, getCPUNew.IOWaitTime,
-		getCPUNew.IRQTime, getCPUNew.SoftIRQTime, getCPUNew.StealTime, getCPUNew.GuestTime, getCPUNew.GuestNiceTime}
-
-	// summation of all the time slices
-	currentCPUSum := 0.0
-	for _, val := range currentCPU {
-		currentCPUSum += val
-	}
-
-	currentCPUSum -= (currentCPU[8] + currentCPU[9])
-	delTotalTime := currentCPUSum - oldCPUSum
-
-	totalIdleTime := currentCPU[3] + currentCPU[4]
-	totalCPUTime := currentCPUSum - totalIdleTime
-
-	// calculate delta values
-	delCPUTime := totalCPUTime - oldCPUTime
-	// delIdleTime := totalIdleTime - oldIdleTime
-
-	// calculate utilization percentage
-	perc = ((delCPUTime / delTotalTime) * 100)
-
-	cpuOld = currentCPU
-	// return perc, cpuOld, currentCPU, nil
-	return perc, cpuOld, currentCPU, nil
-}
-
 func CalculateCPUStatPerc() (float64, error) {
 
 	if cpuOld == nil {
 		getCPUOld, err := getCPUstat()
 		if err != nil {
-			return 0, err
+			return 0.0, err
 		}
+
 		cpuOld = []float64{getCPUOld.UserTime, getCPUOld.NiceTime, getCPUOld.SystemTime, getCPUOld.IdleTime, getCPUOld.IOWaitTime,
 			getCPUOld.IRQTime, getCPUOld.SoftIRQTime, getCPUOld.StealTime, getCPUOld.GuestTime, getCPUOld.GuestNiceTime}
+
+		return 0.0, nil
 	}
 
-	time.Sleep(time.Second * 1)
 	getCPUNew, err := getCPUstat()
 	if err != nil {
 		return 0, err

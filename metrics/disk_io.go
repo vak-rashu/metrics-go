@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 // disk io creates the graph of
@@ -108,9 +107,9 @@ func GetDiskReadIOPS() (float64, error) {
 		}
 
 		oldreadComp = olddisk.readComps
+		return 0.0, nil
 	}
 
-	time.Sleep(time.Second * 1)
 	newDisk, err := GetDiskStats()
 	if err != nil {
 		return 0.0, err
@@ -134,9 +133,8 @@ func GetDiskWriteIOPS() (float64, error) {
 		}
 
 		oldwriteComp = olddisk.writesComp
+		return 0.0, nil
 	}
-
-	time.Sleep(time.Second * 1)
 
 	newDisk, err := GetDiskStats()
 	if err != nil {

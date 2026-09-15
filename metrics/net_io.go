@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"strings"
-	"time"
 )
 
 type receiveNetStat struct {
@@ -85,9 +84,8 @@ func GetPacketsStat() (float64, float64, error) {
 
 		packRec = oldrecPack.packets
 		packTransm = oldtransPack.packets
+		return 0.0, 0.0, nil
 	}
-
-	time.Sleep(time.Second * 1)
 
 	newrecPack, newtransPack, err := getNetStats()
 	if err != nil {
