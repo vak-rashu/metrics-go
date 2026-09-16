@@ -10,25 +10,12 @@ import (
 	metrics "github.com/vak-rashu/metrics-go/metrics"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
+	gloss "charm.land/lipgloss/v2"
 )
 
 type tickMsg time.Time
 
 var fetchFrequency = 1 * time.Second
-
-var defaultStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("63"))
-
-// CPU gets its own bright, high-contrast style so it doesn't disappear.
-var cpuStyle = lipgloss.NewStyle().
-	Foreground(lipgloss.Color("3")) // yellow
-
-var diskReadStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))  // green
-var diskWriteStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("1")) // red
-var netRXStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))     // cyan
-var netTXStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))     // magenta
 
 type model struct {
 	cpu sparkline.Model
@@ -208,21 +195,21 @@ func (m model) View() tea.View {
 	)
 
 	// ---------------- 2 × 2 LAYOUT ----------------
-	topRow := lipgloss.JoinHorizontal(
-		lipgloss.Top,
+	topRow := gloss.JoinHorizontal(
+		gloss.Top,
 		cpuPanel,
 		memPanel,
 	)
 
-	bottomRow := lipgloss.JoinHorizontal(
-		lipgloss.Top,
+	bottomRow := gloss.JoinHorizontal(
+		gloss.Top,
 		diskPanel,
 		networkPanel,
 	)
 
 	// Put the two rows together.
-	dashboard := lipgloss.JoinVertical(
-		lipgloss.Left,
+	dashboard := gloss.JoinVertical(
+		gloss.Left,
 		topRow,
 		"",
 		bottomRow,
