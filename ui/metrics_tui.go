@@ -15,7 +15,11 @@ import (
 
 type tickMsg time.Time
 
+// fetch frequency of the timer
 var fetchFrequency = 1 * time.Second
+
+// width of the screen
+const width = 40
 
 type model struct {
 	cpu sparkline.Model
@@ -37,10 +41,11 @@ type model struct {
 	memTotal     int
 	memFree      int
 	memAvailable int
+
+	selected map[int]struct{}
 }
 
 func NewModel() model {
-	const width = 40
 
 	return model{
 		cpu: sparkline.New(width, 3, sparkline.WithStyle(cpuStyle)),
@@ -61,6 +66,7 @@ func doTick() tea.Cmd {
 
 func (m model) Init() tea.Cmd {
 	return doTick()
+	// have the init here
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -118,13 +124,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// ---------------- MEMORY ----------------
-		t, f, a, err := metrics.GetMemStats()
+		total, free, available, err := metrics.GetMemStats()
 		if err != nil {
 			fmt.Println("Memory:", err)
 		} else {
-			m.memTotal = t
-			m.memFree = f
-			m.memAvailable = a
+			m.memTotal = total
+			m.memFree = free
+			m.memAvailable = available
 		}
 
 		return m, doTick()
