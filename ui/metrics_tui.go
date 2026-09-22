@@ -46,14 +46,14 @@ func (m model) metricBox(
 
 	// Highlight selected metric
 	if m.selected == metric {
-		style = style.Border(gloss.ThickBorder())
+		style = style.BorderStyle(gloss.ThickBorder())
 	} else {
-		style = style.Border(gloss.NormalBorder())
+		style = style.BorderStyle(gloss.NormalBorder())
 	}
 
 	return style.Render(
 		fmt.Sprintf(
-			"%s\n\n%s",
+			"%s\n%s",
 			title,
 			graph,
 		),
@@ -94,65 +94,72 @@ type model struct {
 }
 
 func NewModel() model {
+	innerSmallWidth := smallWidth - 2
+	innerDetailWidth := detailWidth - 2
+
 	return model{
 		// Small graphs
 		cpu: sparkline.New(
-			smallWidth,
+			innerSmallWidth,
 			2,
+			sparkline.WithMaxValue(100.0),
 			sparkline.WithStyle(cpuStyle),
 		),
 
 		memory: sparkline.New(
-			smallWidth,
+			innerSmallWidth,
 			2,
+			sparkline.WithMaxValue(100.0),
 			sparkline.WithStyle(cpuStyle),
 		),
 
 		diskRead: sparkline.New(
-			smallWidth,
+			innerSmallWidth,
 			1,
 			sparkline.WithStyle(diskReadStyle),
 		),
 
 		diskWrite: sparkline.New(
-			smallWidth,
+			innerSmallWidth,
 			1,
 			sparkline.WithStyle(diskWriteStyle),
 		),
 
 		netRX: sparkline.New(
-			smallWidth,
+			innerSmallWidth,
 			1,
 			sparkline.WithStyle(netRXStyle),
 		),
 
 		netTX: sparkline.New(
-			smallWidth,
+			innerSmallWidth,
 			1,
 			sparkline.WithStyle(netTXStyle),
 		),
 
 		// Large graphs
 		cpuDetail: sparkline.New(
-			detailWidth,
+			innerDetailWidth,
 			detailHeight,
+			sparkline.WithMaxValue(100.0),
 			sparkline.WithStyle(cpuStyle),
 		),
 
 		memoryDetail: sparkline.New(
-			detailWidth,
+			innerDetailWidth,
 			detailHeight,
+			sparkline.WithMaxValue(100.0),
 			sparkline.WithStyle(cpuStyle),
 		),
 
 		diskDetail: sparkline.New(
-			detailWidth,
+			innerDetailWidth,
 			detailHeight,
 			sparkline.WithStyle(diskReadStyle),
 		),
 
 		netDetail: sparkline.New(
-			detailWidth,
+			innerDetailWidth,
 			detailHeight,
 			sparkline.WithStyle(netRXStyle),
 		),
@@ -191,6 +198,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "down", "j":
 			if m.selected < networkMetric {
 				m.selected++
+			}
+		}
+
+	case tea.MouseClickMsg:
+
+		if msg.X >= 0 && msg.X < smallWidth {
+			if msg.Y >= 0 && msg.Y <= 4 {
+				m.selected = cpuMetric
+			} else if msg.Y >= 6 && msg.Y <= 10 {
+				m.selected = memoryMetric
+			} else if msg.Y >= 12 && msg.Y <= 16 {
+				m.selected = diskMetric
+			} else if msg.Y >= 18 && msg.Y <= 22 {
+				m.selected = networkMetric
 			}
 		}
 
@@ -370,8 +391,11 @@ func (m model) View() tea.View {
 		title = "Memory"
 		detailGraph = m.memoryDetail.View()
 		detailValue = fmt.Sprintf(
-			"Utilization: %.2f%%",
+			"Utilization: %.2f%%\nTotal: %d GB    Available: %d GB    Free: %d GB",
 			m.memoryPerc,
+			m.memTotal,
+			m.memAvailable,
+			m.memFree,
 		)
 
 	case diskMetric:
@@ -395,7 +419,7 @@ func (m model) View() tea.View {
 
 	detailPanel := defaultStyle.
 		Width(detailWidth).
-		Height(detailHeight + 5).
+		Height(detailHeight + 7).
 		Render(
 			fmt.Sprintf(
 				"%s\n\n%s\n\n%s",
@@ -414,5 +438,9 @@ func (m model) View() tea.View {
 		detailPanel,
 	)
 
-	return tea.NewView(layout)
+	// return tea.NewView(layout)
+
+	v := tea.NewView(layout)
+	v.AltScreen = true
+	return v
 }
