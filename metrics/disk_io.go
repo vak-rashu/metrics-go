@@ -44,8 +44,7 @@ func GetBlockDevice() ([]string, error) {
 
 	for _, v := range dirEntry {
 		if matched, _ := regexp.Match(`sd*`, []byte(v.Name())); matched {
-			path := sysPath("block", v.Name())
-			dirSlice = append(dirSlice, path)
+			dirSlice = append(dirSlice, v.Name())
 		}
 	}
 

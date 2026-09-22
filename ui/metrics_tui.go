@@ -113,7 +113,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// ---------------- NETWORK ----------------
-		rxPackets, txPackets, err := metrics.GetPacketsStat()
+		// add interface name
+		rxPackets, txPackets, err := metrics.GetPacketsStat("")
 		if err != nil {
 			fmt.Println("Network:", err)
 		} else {

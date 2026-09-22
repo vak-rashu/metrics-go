@@ -3,6 +3,7 @@ package metrics
 import (
 	"bufio"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -29,7 +30,23 @@ type transmittedNetStat struct {
 	compressed float64
 }
 
-func getNetStats() (receiveNetStat, transmittedNetStat, error) {
+// get the block devices on the system
+func GetInterfaceTypes() ([]string, error) {
+
+	interfaceSlice := []string{}
+	dirEntry, err := os.ReadDir("/sys/class/net")
+	if err != nil {
+		return []string{}, err
+	}
+
+	for _, v := range dirEntry {
+		interfaceSlice = append(interfaceSlice, v.Name())
+	}
+
+	return interfaceSlice, nil
+}
+
+func getNetStats(interfaceName string) (receiveNetStat, transmittedNetStat, error) {
 
 	recNet := receiveNetStat{}
 	transmNet := transmittedNetStat{}
@@ -45,7 +62,7 @@ func getNetStats() (receiveNetStat, transmittedNetStat, error) {
 		text := scanner.Text()
 		line := strings.Fields(text)
 
-		if line[0] == "eth0:" {
+		if line[0] == fmt.Sprintf("%s:", interfaceName) {
 			cnt, err := fmt.Sscanf(text,
 				"%s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
 				&recNet.face, &recNet.bytes, &recNet.packets, &recNet.errs,
@@ -75,9 +92,9 @@ func getNetStats() (receiveNetStat, transmittedNetStat, error) {
 var packRec float64
 var packTransm float64
 
-func GetPacketsStat() (float64, float64, error) {
+func GetPacketsStat(interfaceName string) (float64, float64, error) {
 	if packRec == 0 && packTransm == 0 {
-		oldrecPack, oldtransPack, err := getNetStats()
+		oldrecPack, oldtransPack, err := getNetStats(interfaceName)
 		if err != nil {
 			panic(err)
 		}
@@ -87,7 +104,7 @@ func GetPacketsStat() (float64, float64, error) {
 		return 0.0, 0.0, nil
 	}
 
-	newrecPack, newtransPack, err := getNetStats()
+	newrecPack, newtransPack, err := getNetStats(interfaceName)
 	if err != nil {
 		panic(err)
 	}
