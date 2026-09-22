@@ -91,7 +91,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// ---------------- DISK READ ----------------
-		readIOPS, err := metrics.GetDiskReadIOPS()
+		// add block name here
+		readIOPS, err := metrics.GetDiskReadIOPS("")
 		if err != nil {
 			fmt.Println("Disk read:", err)
 		} else {
@@ -101,7 +102,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// ---------------- DISK WRITE ----------------
-		writeIOPS, err := metrics.GetDiskWriteIOPS()
+		// add blockname here
+		writeIOPS, err := metrics.GetDiskWriteIOPS("")
 		if err != nil {
 			fmt.Println("Disk write:", err)
 		} else {

@@ -3,7 +3,8 @@ package metrics
 import (
 	"bufio"
 	"fmt"
-	"os/exec"
+	"os"
+	"regexp"
 	"strings"
 )
 
@@ -32,27 +33,29 @@ type diskStat struct {
 	// remaining fields are not added
 }
 
-// get the rootfs on the system
-func getMnt() string {
-	//make a wrapper to get the no. of mounts in the system
-	cmd := exec.Command("findmnt", "-n", "-o", "SOURCE", "/")
-	output, err := cmd.Output()
-	if err != nil {
-		panic(err)
-	}
-	val := string(output)
-	c := strings.Split(val, "/")
-	y := strings.TrimSpace(c[2])
+// get the block devices on the system
+func GetBlockDevice() ([]string, error) {
 
-	return y
+	dirSlice := []string{}
+	dirEntry, err := os.ReadDir("/sys/block")
+	if err != nil {
+		return []string{}, err
+	}
+
+	for _, v := range dirEntry {
+		if matched, _ := regexp.Match(`sd*`, []byte(v.Name())); matched {
+			path := sysPath("block", v.Name())
+			dirSlice = append(dirSlice, path)
+		}
+	}
+
+	return dirSlice, nil
 }
 
-func GetDiskStats() (diskStat, error) {
+func getDiskStats(blockName string) (diskStat, error) {
 
 	//get the struct value ready
 	disk := diskStat{}
-	// get mnts of the system
-	mntsRoot := getMnt()
 
 	// read proc file
 	path := procPath("diskstats")
@@ -66,7 +69,7 @@ func GetDiskStats() (diskStat, error) {
 		text := scanner.Text()
 		line := strings.Fields(text)
 
-		if line[2] == mntsRoot {
+		if line[2] == blockName {
 			cnt, err := fmt.Sscanf(text,
 				"%d %d %s %f %f %f %f %f %f %f %f %f %f",
 				&disk.minor, &disk.major, &disk.diskName,
@@ -98,10 +101,10 @@ func GetDiskStats() (diskStat, error) {
 
 var oldreadComp float64
 
-func GetDiskReadIOPS() (float64, error) {
+func GetDiskReadIOPS(blockName string) (float64, error) {
 
 	if oldreadComp == 0 {
-		olddisk, err := GetDiskStats()
+		olddisk, err := getDiskStats(blockName)
 		if err != nil {
 			return 0.0, err
 		}
@@ -110,7 +113,7 @@ func GetDiskReadIOPS() (float64, error) {
 		return 0.0, nil
 	}
 
-	newDisk, err := GetDiskStats()
+	newDisk, err := getDiskStats(blockName)
 	if err != nil {
 		return 0.0, err
 	}
@@ -124,10 +127,10 @@ func GetDiskReadIOPS() (float64, error) {
 
 var oldwriteComp float64
 
-func GetDiskWriteIOPS() (float64, error) {
+func GetDiskWriteIOPS(blockName string) (float64, error) {
 
 	if oldwriteComp == 0 {
-		olddisk, err := GetDiskStats()
+		olddisk, err := getDiskStats(blockName)
 		if err != nil {
 			return 0.0, err
 		}
@@ -136,7 +139,7 @@ func GetDiskWriteIOPS() (float64, error) {
 		return 0.0, nil
 	}
 
-	newDisk, err := GetDiskStats()
+	newDisk, err := getDiskStats(blockName)
 	if err != nil {
 		return 0.0, err
 	}
