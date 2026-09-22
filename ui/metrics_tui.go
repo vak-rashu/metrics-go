@@ -221,5 +221,9 @@ func (m model) View() tea.View {
 		bottomRow,
 	)
 
-	return tea.NewView(dashboard)
+	// return tea.NewView(dashboard)
+
+	v := tea.NewView(dashboard)
+	v.AltScreen = true
+	return v
 }
