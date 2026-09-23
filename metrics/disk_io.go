@@ -119,7 +119,7 @@ func GetDiskReadIOPS(blockName string) (float64, error) {
 		}
 
 		oldreadComp = olddisk.readComps
-		return 0.0, nil
+		// return 0.0, nil
 	}
 
 	newDisk, err := getDiskStats(blockName)
@@ -145,7 +145,7 @@ func GetDiskWriteIOPS(blockName string) (float64, error) {
 		}
 
 		oldwriteComp = olddisk.writesComp
-		return 0.0, nil
+		// return 0.0, nil
 	}
 
 	newDisk, err := getDiskStats(blockName)
@@ -171,7 +171,7 @@ func GetDiskReadBytes(blockName string) (float64, error) {
 		}
 
 		oldreadBytes = olddisk.sectorRead
-		return 0.0, nil
+		// return 0.0, nil
 	}
 
 	newDisk, err := getDiskStats(blockName)
@@ -202,7 +202,7 @@ func GetDiskWriteBytes(blockName string) (float64, error) {
 		}
 
 		oldwriteBytes = olddisk.sectorsWritten
-		return 0.0, nil
+		// return 0.0, nil
 	}
 
 	newDisk, err := getDiskStats(blockName)
