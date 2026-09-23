@@ -5,16 +5,11 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
-// disk io creates the graph of
-// number of reads and writes done
-
-// the values is taken from
-// {/proc/diskstats}
-// all metrics are cumulative
-// except field 9
+// get the sector size of
 
 type diskStat struct {
 	minor          int
@@ -49,6 +44,21 @@ func GetBlockDevice() ([]string, error) {
 	}
 
 	return dirSlice, nil
+}
+
+func getBlockSize(blockName string) (float64, error) {
+	path := sysPath("block", blockName, "queue", "physical_block_size")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+
+	blockSize, err := strconv.Atoi(strings.Trim(string(b), "\n"))
+	if err != nil {
+		return 0, err
+	}
+
+	return float64(blockSize), nil
 }
 
 func getDiskStats(blockName string) (diskStat, error) {
@@ -148,4 +158,66 @@ func GetDiskWriteIOPS(blockName string) (float64, error) {
 	oldwriteComp = newDisk.writesComp
 
 	return diskDelta, nil
+}
+
+var oldreadBytes float64
+
+func GetDiskReadBytes(blockName string) (float64, error) {
+
+	if oldreadBytes == 0 {
+		olddisk, err := getDiskStats(blockName)
+		if err != nil {
+			return 0.0, err
+		}
+
+		oldreadBytes = olddisk.sectorRead
+		return 0.0, nil
+	}
+
+	newDisk, err := getDiskStats(blockName)
+	if err != nil {
+		return 0.0, err
+	}
+
+	b, err := getBlockSize(blockName)
+	if err != nil {
+		return 0.0, err
+	}
+
+	diskByteReadDelta := (newDisk.sectorRead - oldreadBytes) * b
+
+	oldreadBytes = newDisk.readComps
+
+	return diskByteReadDelta, nil
+}
+
+var oldwriteBytes float64
+
+func GetDiskWriteBytes(blockName string) (float64, error) {
+
+	if oldwriteBytes == 0 {
+		olddisk, err := getDiskStats(blockName)
+		if err != nil {
+			return 0.0, err
+		}
+
+		oldwriteBytes = olddisk.sectorsWritten
+		return 0.0, nil
+	}
+
+	newDisk, err := getDiskStats(blockName)
+	if err != nil {
+		return 0.0, err
+	}
+
+	b, err := getBlockSize(blockName)
+	if err != nil {
+		return 0.0, err
+	}
+
+	diskByteWriteDelta := (newDisk.sectorsWritten - oldwriteBytes) * b
+
+	oldwriteBytes = newDisk.sectorsWritten
+
+	return diskByteWriteDelta, nil
 }
