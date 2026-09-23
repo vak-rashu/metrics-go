@@ -1,2 +1,4 @@
 debug/
 later/
+cpu.go
+process.go

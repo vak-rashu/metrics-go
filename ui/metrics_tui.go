@@ -66,7 +66,6 @@ func doTick() tea.Cmd {
 
 func (m model) Init() tea.Cmd {
 	return doTick()
-	// have the init here
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

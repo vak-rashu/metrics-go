@@ -4,9 +4,8 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
 package main
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
+	tui "github.com/vak-rashu/metrics-go/ui"
 )
 
 // showCmd represents the show command
@@ -20,11 +19,8 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("use with cpu or cpu --all")
+		tui.CreateChart()
 	},
 }
 
-// func init() {
-// 	showCmd.AddCommand(cpuCmd)
-// 	showCmd.AddCommand(processCmd)
-// }
+func init() {}
