@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 type receiveNetStat struct {
@@ -116,4 +117,35 @@ func GetPacketsStat(interfaceName string) (float64, float64, error) {
 	packTransm = newtransPack.packets
 
 	return recPackDelta, transmPackDelta, nil
+}
+
+var byteRec float64
+var byteTransm float64
+
+func GetBytesStat(interfaceName string) (float64, float64, error) {
+	if byteRec == 0 && byteTransm == 0 {
+		oldrecByte, oldtransByte, err := getNetStats(interfaceName)
+		if err != nil {
+			panic(err)
+		}
+
+		byteRec = oldrecByte.bytes
+		byteTransm = oldtransByte.bytes
+		// return 0.0, 0.0, nil
+	}
+
+	time.Sleep(time.Second * 1)
+	newrecByte, newtransByte, err := getNetStats(interfaceName)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("f", byteRec, newrecByte.bytes)
+	recByteDelta := (newrecByte.bytes - byteRec) / 1024
+	transmByteDelta := (newtransByte.bytes - byteTransm) / 1024
+
+	byteRec = newrecByte.bytes
+	byteTransm = newtransByte.bytes
+
+	return recByteDelta, transmByteDelta, nil
 }
