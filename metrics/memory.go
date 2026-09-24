@@ -18,11 +18,13 @@ type memStats struct {
 
 func GetMemStats() (float64, float64, float64, float64, float64, error) {
 
-	var total float64
-	var free float64
-	var avail float64
-	var cached float64
-	var used float64
+	var (
+		total  float64
+		free   float64
+		avail  float64
+		cached float64
+		used   float64
+	)
 
 	path := procPath("meminfo")
 	file, err := openPath(path)
@@ -41,7 +43,7 @@ func GetMemStats() (float64, float64, float64, float64, float64, error) {
 			total = convertKBtoGB(memInfo.memTotal)
 
 			if err != nil {
-				return 0, 0, 0, 0, 0, err
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
 			}
 		}
 		if line[0] == "MemFree:" {
@@ -49,7 +51,7 @@ func GetMemStats() (float64, float64, float64, float64, float64, error) {
 			free = convertKBtoGB(memInfo.memFree)
 
 			if err != nil {
-				return 0, 0, 0, 0, 0, err
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
 			}
 		}
 		if line[0] == "MemAvailable:" {
@@ -57,7 +59,7 @@ func GetMemStats() (float64, float64, float64, float64, float64, error) {
 			avail = convertKBtoGB(memInfo.memAvailable)
 
 			if err != nil {
-				return 0, 0, 0, 0, 0, err
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
 			}
 		}
 
@@ -65,7 +67,7 @@ func GetMemStats() (float64, float64, float64, float64, float64, error) {
 			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memBuffers)
 
 			if err != nil {
-				return 0, 0, 0, 0, 0, err
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
 			}
 		}
 
@@ -74,7 +76,7 @@ func GetMemStats() (float64, float64, float64, float64, float64, error) {
 			cached = convertKBtoGB(memInfo.memCached)
 
 			if err != nil {
-				return 0, 0, 0, 0, 0, err
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
 			}
 		}
 
@@ -82,7 +84,7 @@ func GetMemStats() (float64, float64, float64, float64, float64, error) {
 			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memSReclaimable)
 
 			if err != nil {
-				return 0, 0, 0, 0, 0, err
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
 			}
 		}
 	}
