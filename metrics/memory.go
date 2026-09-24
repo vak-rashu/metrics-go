@@ -101,3 +101,18 @@ func convertKBtoGB(val float64) float64 {
 	val = val / 1048576
 	return val
 }
+
+// get mem usage percentage
+func MemPerc() (float64, float64, float64, float64, error) {
+
+	total, free, avail, cached, used, err := GetMemStats()
+	if err != nil {
+		return 0.0, 0.0, 0.0, 0.0, err
+	}
+	percFree := (free / total) * 100
+	percAvail := (avail / total) * 100
+	percCached := (cached / total) * 100
+	percUsed := (used / total) * 100
+
+	return percFree, percAvail, percCached, percUsed, nil
+}
