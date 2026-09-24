@@ -38,9 +38,9 @@ type model struct {
 	netRXPackets float64
 	netTXPackets float64
 
-	memTotal     int
-	memFree      int
-	memAvailable int
+	memTotal     float64
+	memFree      float64
+	memAvailable float64
 
 	selected map[int]struct{}
 }
@@ -159,9 +159,9 @@ func (m model) View() tea.View {
 	memPanel := defaultStyle.Width(panelWidth).Render(
 		fmt.Sprintf(
 			"Memory\n\n"+
-				"Total:     %d GB\n"+
-				"Free:      %d GB\n"+
-				"Available: %d GB",
+				"Total:     %.2f GB\n"+
+				"Free:      %.2f GB\n"+
+				"Available: %.2f GB",
 			m.memTotal,
 			m.memFree,
 			m.memAvailable,

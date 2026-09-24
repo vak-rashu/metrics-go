@@ -7,18 +7,23 @@ import (
 )
 
 type memStats struct {
-	memTotal     float64
-	memFree      float64
-	MemAvailable float64
+	name            string
+	memTotal        float64
+	memFree         float64
+	memAvailable    float64
+	memBuffers      float64
+	memCached       float64
+	memSReclaimable float64
 }
 
-var name string
+func GetMemStats() (float64, float64, float64, float64, float64, error) {
 
-var total int
-var free int
-var avail int
+	var total float64
+	var free float64
+	var avail float64
+	var cached float64
+	var used float64
 
-func GetMemStats() (int, int, int, error) {
 	path := procPath("meminfo")
 	file, err := openPath(path)
 	if err != nil {
@@ -32,35 +37,65 @@ func GetMemStats() (int, int, int, error) {
 		line := strings.Fields(text)
 
 		if line[0] == "MemTotal:" {
-			_, err := fmt.Sscanf(text, "%s %f", &name, &memInfo.memTotal)
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memTotal)
 			total = convertKBtoGB(memInfo.memTotal)
 
 			if err != nil {
-				return 0, 0, 0, err
+				return 0, 0, 0, 0, 0, err
 			}
 		}
 		if line[0] == "MemFree:" {
-			_, err := fmt.Sscanf(text, "%s %f", &name, &memInfo.memFree)
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memFree)
 			free = convertKBtoGB(memInfo.memFree)
 
 			if err != nil {
-				return 0, 0, 0, err
+				return 0, 0, 0, 0, 0, err
 			}
 		}
 		if line[0] == "MemAvailable:" {
-			_, err := fmt.Sscanf(text, "%s %f", &name, &memInfo.MemAvailable)
-			avail = convertKBtoGB(memInfo.MemAvailable)
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memAvailable)
+			avail = convertKBtoGB(memInfo.memAvailable)
 
 			if err != nil {
-				return 0, 0, 0, err
+				return 0, 0, 0, 0, 0, err
+			}
+		}
+
+		if line[0] == "Buffers:" {
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memBuffers)
+
+			if err != nil {
+				return 0, 0, 0, 0, 0, err
+			}
+		}
+
+		if line[0] == "Cached:" {
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memCached)
+			cached = convertKBtoGB(memInfo.memCached)
+
+			if err != nil {
+				return 0, 0, 0, 0, 0, err
+			}
+		}
+
+		if line[0] == "SReclaimable:" {
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memSReclaimable)
+
+			if err != nil {
+				return 0, 0, 0, 0, 0, err
 			}
 		}
 	}
-	scanner.Err()
-	return total, free, avail, nil
+
+	if err := scanner.Err(); err != nil {
+		return 0.0, 0.0, 0.0, 0.0, 0.0, err
+	}
+
+	used = convertKBtoGB(memInfo.memTotal - (memInfo.memFree + memInfo.memCached + memInfo.memBuffers + memInfo.memSReclaimable))
+	return total, free, avail, cached, used, nil
 }
 
-func convertKBtoGB(val float64) int {
-	val = val / 1000000
-	return int(val)
+func convertKBtoGB(val float64) float64 {
+	val = val / 1048576
+	return val
 }
