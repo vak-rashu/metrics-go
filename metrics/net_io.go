@@ -47,6 +47,8 @@ func GetInterfaceTypes() ([]string, error) {
 	return interfaceSlice, nil
 }
 
+// function to get net stats from the '/proc/net/dev' file
+// this function is used by all other functions in the file to plot graphs
 func getNetStats(interfaceName string) (receiveNetStat, transmittedNetStat, error) {
 
 	recNet := receiveNetStat{}
@@ -118,6 +120,8 @@ func GetPacketsStat(interfaceName string) (float64, float64, error) {
 
 	return recPackDelta, transmPackDelta, nil
 }
+
+// get netio stats for bytes received and transmitted
 
 var byteRec float64
 var byteTransm float64

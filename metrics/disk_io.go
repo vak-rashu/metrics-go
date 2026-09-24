@@ -9,8 +9,6 @@ import (
 	"strings"
 )
 
-// get the sector size of
-
 type diskStat struct {
 	minor          int
 	major          int
@@ -46,6 +44,7 @@ func GetBlockDevice() ([]string, error) {
 	return dirSlice, nil
 }
 
+// get sector size of each device
 func getBlockSize(blockName string) (float64, error) {
 	path := sysPath("block", blockName, "queue", "physical_block_size")
 	b, err := os.ReadFile(path)
@@ -53,14 +52,16 @@ func getBlockSize(blockName string) (float64, error) {
 		return 0, err
 	}
 
-	blockSize, err := strconv.Atoi(strings.Trim(string(b), "\n"))
+	sectorSize, err := strconv.Atoi(strings.Trim(string(b), "\n"))
 	if err != nil {
 		return 0, err
 	}
 
-	return float64(blockSize), nil
+	return float64(sectorSize), nil
 }
 
+// function to get diskstats from the 'diskstats' file
+// this function is used by all other functions in the file to plot graphs
 func getDiskStats(blockName string) (diskStat, error) {
 
 	//get the struct value ready
@@ -104,9 +105,7 @@ func getDiskStats(blockName string) (diskStat, error) {
 	return disk, nil
 }
 
-// get stats for disk IOPS to
-// calculate how much IO is happening
-// by the system per second
+// calculate disk IOPS
 
 var oldreadComp float64
 
@@ -159,6 +158,8 @@ func GetDiskWriteIOPS(blockName string) (float64, error) {
 
 	return diskDelta, nil
 }
+
+// calculate disk throughput
 
 var oldreadBytes float64
 
