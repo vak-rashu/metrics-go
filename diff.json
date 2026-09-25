@@ -1,0 +1,1624 @@
+diff --git a/.gitignore b/.gitignore
+index 384e7c5..17d129e 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,6 +1,2 @@
+ debug/
+-later/
+-cpu.go
+-process.go
+-metrics/process.go
+-metrics/get_process_list.go
+\ No newline at end of file
++later/
+\ No newline at end of file
+diff --git a/README.md b/README.md
+index 98b18a7..590546b 100644
+--- a/README.md
++++ b/README.md
+@@ -8,8 +8,6 @@ METRICS takes a simpler approach by reading system statistics directly from Linu
+ 
+ > **Understand what is happening on your system without unnecessary complexity.**
+ 
+-<img width="800" height="418" alt="2026-09-2314-37-10online-video-cutter com-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/fe62dfcd-54b0-4d65-bb36-5c0b57a1a532" />
+-
+ ---
+ 
+ ## Monitoring System Resources
+@@ -20,22 +18,48 @@ METRICS currently monitors four major areas of system activity:
+ 
+ CPU utilization is calculated from the cumulative CPU-time counters exposed through `/proc/stat`. METRICS periodically samples these counters and uses the difference between consecutive snapshots to determine CPU utilization over the sampling interval.
+ 
++<!-- Add CPU image here -->
++<img width="390" height="163" alt="Screenshot 2026-09-15 193951" src="https://github.com/user-attachments/assets/fbcbbe6c-b608-4835-b446-c59c23a3e67d" />
++
+ <br>
+ 
+ ### Disk I/O
+ 
+ Disk activity is collected from `/proc/diskstats`. Cumulative read and write operation counters are converted into read and write IOPS using periodic snapshots.
+ 
++<!-- Add Disk image here -->
++<img width="360" height="337" alt="Screenshot 2026-09-15 193930" src="https://github.com/user-attachments/assets/9157acc9-ffb0-444b-9c71-81feee5d391d" />
+ <br>
+ 
+ ### Network
+ 
+ Network statistics are collected from `/proc/net/dev`. METRICS currently tracks packets received and transmitted by the network interface and converts the cumulative counters into packets-per-second rates.
+ 
++<!-- Add Network image here -->
++<img width="360" height="337" alt="Screenshot 2026-09-15 193918" src="https://github.com/user-attachments/assets/17b7767e-78a4-4510-b716-7c03e9d1d7c0" />
+ <br>
+ 
+ ### Memory
+ 
+ Memory statistics are read directly from `/proc/meminfo`, providing the current total, free, and available memory on the system.
+ 
++<!-- Add Memory image here -->
++<img width="635" height="157" alt="Screenshot 2026-09-13 224118" src="https://github.com/user-attachments/assets/924dc9a7-7765-4e84-8d07-67646d71b253" />
+ ---
++
++## How It Works
++
++Linux exposes system information through several procfs interfaces:
++
++```text
++/proc/stat
++    └── CPU statistics
++
++/proc/diskstats
++    └── Disk I/O statistics
++
++/proc/net/dev
++    └── Network statistics
++
++/proc/meminfo
++    └── Memory statistics
+diff --git a/cpu.go b/cpu.go
+new file mode 100644
+index 0000000..5958727
+--- /dev/null
++++ b/cpu.go
+@@ -0,0 +1,55 @@
++/*
++Copyright © 2026 NAME HERE <EMAIL ADDRESS>
++*/
++package main
++
++// var (
++// 	isAll      string
++// 	logicalCpu string
++// )
++
++// // cpuCmd represents the cpu command
++// var cpuCmd = &cobra.Command{
++// 	Use:   "cpu",
++// 	Short: "A brief description of your command",
++// 	Long: `A longer description that spans multiple lines and likely contains examples
++// and usage of using your command. For example:
++
++// Cobra is a CLI library for Go that empowers applications.
++// This application is a tool to generate the needed files
++// to quickly create a Cobra application.`,
++// 	RunE: func(cmd *cobra.Command, args []string) error {
++// 		showAll, err := cmd.Flags().GetBool("all")
++// 		getLogical, err := cmd.Flags().GetString("logical")
++// 		if err != nil {
++// 			return err
++// 		}
++
++// 		if showAll {
++// 			err := metrics.ShowPerCpuStat()
++// 			if err != nil {
++// 				return err
++// 			}
++// 		} else if getLogical == "true" {
++// 			logicalCpu, err := metrics.LogicalCpuCount()
++// 			if err != nil {
++// 				return err
++// 			}
++// 			cmd.Printf("Total number of Logical CPU are %d\n", logicalCpu)
++// 		} else {
++// 			systemCpuStat, err := metrics.ShowCPUstat()
++// 			if err != nil {
++// 				return err
++// 			}
++// 			cmd.Println("System wide CPU metrics:\n", systemCpuStat)
++// 		}
++
++// 		return nil
++// 	},
++// }
++
++// func init() {
++// 	cpuCmd.PersistentFlags().StringVarP(&isAll, "all", "a", "false", "Show all cpu data")
++// 	cpuCmd.PersistentFlags().StringVarP(&logicalCpu, "logical", "l", "false", "Toggle off logical cpu")
++
++// }
+diff --git a/main.go b/main.go
+index cd9b191..256723a 100644
+--- a/main.go
++++ b/main.go
+@@ -3,17 +3,69 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
+ */
+ package main
+ 
+-import (
+-	"os"
+-
+-	tui "github.com/vak-rashu/metrics-go/ui"
+-)
++import tui "github.com/vak-rashu/metrics-go/ui"
+ 
+ func main() {
+ 	// cmd.Execute()
+-
+-	cmd := os.Args
+-	if cmd[1] == "show" {
+-		tui.CreateChart()
+-	}
++	tui.CreateChart()
++	// CreateMemoryChart()
+ }
++
++// var memBoxStyle = lipgloss.NewStyle().
++// 	BorderStyle(lipgloss.NormalBorder()).
++// 	BorderForeground(lipgloss.Color("63"))
++
++// type memoryModel struct {
++// 	memTotal     int
++// 	memFree      int
++// 	memAvailable int
++// }
++
++// func (m memoryModel) Init() tea.Cmd {
++// 	return nil
++// }
++
++// func (m memoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
++// 	switch msg := msg.(type) {
++
++// 	case tea.KeyMsg:
++// 		switch msg.String() {
++// 		case "q", "ctrl+c":
++// 			return m, tea.Quit
++// 		}
++
++// 	}
++
++// 	return m, nil
++// }
++
++// func (m memoryModel) View() tea.View {
++// 	s := fmt.Sprintf(
++// 		"Memory\n\n"+
++// 			"MemTotal:     %d gB\n"+
++// 			"MemFree:      %d gB\n"+
++// 			"MemAvailable: %d gB",
++// 		m.memTotal,
++// 		m.memFree,
++// 		m.memAvailable,
++// 	)
++
++// 	return tea.NewView(
++// 		memBoxStyle.Render(s),
++// 	)
++// }
++
++// func CreateMemoryChart() {
++// 	total, free, available := metrics.GetMemStats()
++
++// 	m := memoryModel{
++// 		memTotal:     total,
++// 		memFree:      free,
++// 		memAvailable: available,
++// 	}
++
++// 	if _, err := tea.NewProgram(m).Run(); err != nil {
++// 		fmt.Println("Error running memory TUI:", err)
++// 		os.Exit(1)
++// 	}
++// }
+diff --git a/metrics/cpu.go b/metrics/cpu.go
+index aa68a2d..3467b48 100644
+--- a/metrics/cpu.go
++++ b/metrics/cpu.go
+@@ -24,6 +24,8 @@ type CPUStat struct {
+ 	GuestNiceTime float64 // time spent running a niced virtual CPU
+ }
+ 
++// instead of assuming
++// get the cpu clocktick(clock speed)
+ const clockTick = 100
+ 
+ // return how many total logical cpus are there
+diff --git a/metrics/disk_io.go b/metrics/disk_io.go
+index 39631e0..de8404b 100644
+--- a/metrics/disk_io.go
++++ b/metrics/disk_io.go
+@@ -3,12 +3,18 @@ package metrics
+ import (
+ 	"bufio"
+ 	"fmt"
+-	"os"
+-	"regexp"
+-	"strconv"
++	"os/exec"
+ 	"strings"
+ )
+ 
++// disk io creates the graph of
++// number of reads and writes done
++
++// the values is taken from
++// {/proc/diskstats}
++// all metrics are cumulative
++// except field 9
++
+ type diskStat struct {
+ 	minor          int
+ 	major          int
+@@ -26,46 +32,27 @@ type diskStat struct {
+ 	// remaining fields are not added
+ }
+ 
+-// get the block devices on the system
+-func GetBlockDevice() ([]string, error) {
+-
+-	dirSlice := []string{}
+-	dirEntry, err := os.ReadDir("/sys/block")
+-	if err != nil {
+-		return []string{}, err
+-	}
+-
+-	for _, v := range dirEntry {
+-		if matched, _ := regexp.Match(`sd*`, []byte(v.Name())); matched {
+-			dirSlice = append(dirSlice, v.Name())
+-		}
+-	}
+-
+-	return dirSlice, nil
+-}
+-
+-// get sector size of each device
+-func getBlockSize(blockName string) (float64, error) {
+-	path := sysPath("block", blockName, "queue", "physical_block_size")
+-	b, err := os.ReadFile(path)
+-	if err != nil {
+-		return 0, err
+-	}
+-
+-	sectorSize, err := strconv.Atoi(strings.Trim(string(b), "\n"))
++// get the rootfs on the system
++func getMnt() string {
++	//make a wrapper to get the no. of mounts in the system
++	cmd := exec.Command("findmnt", "-n", "-o", "SOURCE", "/")
++	output, err := cmd.Output()
+ 	if err != nil {
+-		return 0, err
++		panic(err)
+ 	}
++	val := string(output)
++	c := strings.Split(val, "/")
++	y := strings.TrimSpace(c[2])
+ 
+-	return float64(sectorSize), nil
++	return y
+ }
+ 
+-// function to get diskstats from the 'diskstats' file
+-// this function is used by all other functions in the file to plot graphs
+-func getDiskStats(blockName string) (diskStat, error) {
++func GetDiskStats() (diskStat, error) {
+ 
+ 	//get the struct value ready
+ 	disk := diskStat{}
++	// get mnts of the system
++	mntsRoot := getMnt()
+ 
+ 	// read proc file
+ 	path := procPath("diskstats")
+@@ -79,7 +66,7 @@ func getDiskStats(blockName string) (diskStat, error) {
+ 		text := scanner.Text()
+ 		line := strings.Fields(text)
+ 
+-		if line[2] == blockName {
++		if line[2] == mntsRoot {
+ 			cnt, err := fmt.Sscanf(text,
+ 				"%d %d %s %f %f %f %f %f %f %f %f %f %f",
+ 				&disk.minor, &disk.major, &disk.diskName,
+@@ -105,23 +92,25 @@ func getDiskStats(blockName string) (diskStat, error) {
+ 	return disk, nil
+ }
+ 
+-// calculate disk IOPS
++// get stats for disk IOPS to
++// calculate how much IO is happening
++// by the system per second
+ 
+ var oldreadComp float64
+ 
+-func GetDiskReadIOPS(blockName string) (float64, error) {
++func GetDiskReadIOPS() (float64, error) {
+ 
+ 	if oldreadComp == 0 {
+-		olddisk, err := getDiskStats(blockName)
++		olddisk, err := GetDiskStats()
+ 		if err != nil {
+ 			return 0.0, err
+ 		}
+ 
+ 		oldreadComp = olddisk.readComps
+-		// return 0.0, nil
++		return 0.0, nil
+ 	}
+ 
+-	newDisk, err := getDiskStats(blockName)
++	newDisk, err := GetDiskStats()
+ 	if err != nil {
+ 		return 0.0, err
+ 	}
+@@ -135,19 +124,19 @@ func GetDiskReadIOPS(blockName string) (float64, error) {
+ 
+ var oldwriteComp float64
+ 
+-func GetDiskWriteIOPS(blockName string) (float64, error) {
++func GetDiskWriteIOPS() (float64, error) {
+ 
+ 	if oldwriteComp == 0 {
+-		olddisk, err := getDiskStats(blockName)
++		olddisk, err := GetDiskStats()
+ 		if err != nil {
+ 			return 0.0, err
+ 		}
+ 
+ 		oldwriteComp = olddisk.writesComp
+-		// return 0.0, nil
++		return 0.0, nil
+ 	}
+ 
+-	newDisk, err := getDiskStats(blockName)
++	newDisk, err := GetDiskStats()
+ 	if err != nil {
+ 		return 0.0, err
+ 	}
+@@ -158,67 +147,3 @@ func GetDiskWriteIOPS(blockName string) (float64, error) {
+ 
+ 	return diskDelta, nil
+ }
+-
+-// calculate disk throughput
+-
+-var oldreadBytes float64
+-
+-func GetDiskReadBytes(blockName string) (float64, error) {
+-
+-	if oldreadBytes == 0 {
+-		olddisk, err := getDiskStats(blockName)
+-		if err != nil {
+-			return 0.0, err
+-		}
+-
+-		oldreadBytes = olddisk.sectorRead
+-		// return 0.0, nil
+-	}
+-
+-	newDisk, err := getDiskStats(blockName)
+-	if err != nil {
+-		return 0.0, err
+-	}
+-
+-	b, err := getBlockSize(blockName)
+-	if err != nil {
+-		return 0.0, err
+-	}
+-
+-	diskByteReadDelta := (newDisk.sectorRead - oldreadBytes) * b
+-
+-	oldreadBytes = newDisk.readComps
+-
+-	return diskByteReadDelta, nil
+-}
+-
+-var oldwriteBytes float64
+-
+-func GetDiskWriteBytes(blockName string) (float64, error) {
+-
+-	if oldwriteBytes == 0 {
+-		olddisk, err := getDiskStats(blockName)
+-		if err != nil {
+-			return 0.0, err
+-		}
+-
+-		oldwriteBytes = olddisk.sectorsWritten
+-		// return 0.0, nil
+-	}
+-
+-	newDisk, err := getDiskStats(blockName)
+-	if err != nil {
+-		return 0.0, err
+-	}
+-
+-	b, err := getBlockSize(blockName)
+-	if err != nil {
+-		return 0.0, err
+-	}
+-
+-	diskByteWriteDelta := (newDisk.sectorsWritten - oldwriteBytes) * b
+-
+-	oldwriteBytes = newDisk.sectorsWritten
+-
+-	return diskByteWriteDelta, nil
+-}
+diff --git a/metrics/fs.go b/metrics/fs.go
+index e966356..0c10f29 100644
+--- a/metrics/fs.go
++++ b/metrics/fs.go
+@@ -19,11 +19,13 @@ func sysPath(p ...string) string {
+ 	return filepath.Join(append([]string{sysFileSystem}, p...)...)
+ }
+ 
++// understand embedded interface
+ func openPath(path string) (io.ReadCloser, error) {
+ 	file, err := os.Open(path)
+ 	if err != nil {
+ 		return io.NopCloser(bytes.NewReader(nil)), fmt.Errorf("error opening file %s, Error:\n:%v", path, err)
+ 	}
+ 
++	// file implements both Reader and Closer interface
+ 	return file, err
+ }
+diff --git a/metrics/get_process_list.go b/metrics/get_process_list.go
+new file mode 100644
+index 0000000..23bf3d6
+--- /dev/null
++++ b/metrics/get_process_list.go
+@@ -0,0 +1,10 @@
++package metrics
++
++// import "os"
++
++// func get() {
++
++// 	os.Stat()
++// 	for p := range
++// 		path := procPath("/")
++// }
+diff --git a/metrics/memory.go b/metrics/memory.go
+index 3253b2f..d8fd4de 100644
+--- a/metrics/memory.go
++++ b/metrics/memory.go
+@@ -6,26 +6,22 @@ import (
+ 	"strings"
+ )
+ 
++// represents the following values only right now:
++// MemTotal , MemFree, MemAvailable
++
+ type memStats struct {
+-	name            string
+-	memTotal        float64
+-	memFree         float64
+-	memAvailable    float64
+-	memBuffers      float64
+-	memCached       float64
+-	memSReclaimable float64
++	memTotal     float64
++	memFree      float64
++	MemAvailable float64
+ }
+ 
+-func GetMemStats() (float64, float64, float64, float64, float64, error) {
++var name string
+ 
+-	var (
+-		total  float64
+-		free   float64
+-		avail  float64
+-		cached float64
+-		used   float64
+-	)
++var total int
++var free int
++var avail int
+ 
++func GetMemStats() (int, int, int, error) {
+ 	path := procPath("meminfo")
+ 	file, err := openPath(path)
+ 	if err != nil {
+@@ -39,80 +35,84 @@ func GetMemStats() (float64, float64, float64, float64, float64, error) {
+ 		line := strings.Fields(text)
+ 
+ 		if line[0] == "MemTotal:" {
+-			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memTotal)
++			_, err := fmt.Sscanf(text, "%s %f", &name, &memInfo.memTotal)
+ 			total = convertKBtoGB(memInfo.memTotal)
+ 
+ 			if err != nil {
+-				return 0.0, 0.0, 0.0, 0.0, 0.0, err
++				return 0, 0, 0, err
+ 			}
++			// memInfo.memTotal = line[1]
++			// total, _ = strconv.Atoi(memInfo.memTotal)
++			// total /= 1000000
+ 		}
+ 		if line[0] == "MemFree:" {
+-			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memFree)
++			_, err := fmt.Sscanf(text, "%s %f", &name, &memInfo.memFree)
+ 			free = convertKBtoGB(memInfo.memFree)
+ 
+ 			if err != nil {
+-				return 0.0, 0.0, 0.0, 0.0, 0.0, err
++				return 0, 0, 0, err
+ 			}
++			// memInfo.memFree = line[1]
++			// free, _ = strconv.Atoi(memInfo.memFree)
++			// free /= 1000000
+ 		}
+ 		if line[0] == "MemAvailable:" {
+-			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memAvailable)
+-			avail = convertKBtoGB(memInfo.memAvailable)
+-
+-			if err != nil {
+-				return 0.0, 0.0, 0.0, 0.0, 0.0, err
+-			}
+-		}
+-
+-		if line[0] == "Buffers:" {
+-			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memBuffers)
+-
+-			if err != nil {
+-				return 0.0, 0.0, 0.0, 0.0, 0.0, err
+-			}
+-		}
+-
+-		if line[0] == "Cached:" {
+-			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memCached)
+-			cached = convertKBtoGB(memInfo.memCached)
+-
+-			if err != nil {
+-				return 0.0, 0.0, 0.0, 0.0, 0.0, err
+-			}
+-		}
+-
+-		if line[0] == "SReclaimable:" {
+-			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memSReclaimable)
++			// memInfo.MemAvailable = line[1]
++			// avail, _ = strconv.Atoi(memInfo.MemAvailable)
++			// avail /= 1000000
++			_, err := fmt.Sscanf(text, "%s %f", &name, &memInfo.MemAvailable)
++			avail = convertKBtoGB(memInfo.MemAvailable)
+ 
+ 			if err != nil {
+-				return 0.0, 0.0, 0.0, 0.0, 0.0, err
++				return 0, 0, 0, err
+ 			}
+ 		}
+ 	}
+-
+-	if err := scanner.Err(); err != nil {
+-		return 0.0, 0.0, 0.0, 0.0, 0.0, err
+-	}
+-
+-	used = convertKBtoGB(memInfo.memTotal - (memInfo.memFree + memInfo.memCached + memInfo.memBuffers + memInfo.memSReclaimable))
+-	return total, free, avail, cached, used, nil
++	scanner.Err()
++	return total, free, avail, nil
+ }
+ 
+-func convertKBtoGB(val float64) float64 {
+-	val = val / 1048576
+-	return val
++func convertKBtoGB(val float64) int {
++	val = val / 1000000
++	return int(val)
+ }
+ 
+-// get mem usage percentage
+-func MemPerc() (float64, float64, float64, float64, error) {
+-
+-	total, free, avail, cached, used, err := GetMemStats()
+-	if err != nil {
+-		return 0.0, 0.0, 0.0, 0.0, err
+-	}
+-	percFree := (free / total) * 100
+-	percAvail := (avail / total) * 100
+-	percCached := (cached / total) * 100
+-	percUsed := (used / total) * 100
+-
+-	return percFree, percAvail, percCached, percUsed, nil
+-}
++// func GetMemStats() (int, int, int) {
++// 	path := procPath("meminfo")
++// 	file, err := openPath(path)
++// 	if err != nil {
++// 		panic(err)
++// 	}
++// 	memInfo := memStats{}
++
++// 	scanner := bufio.NewScanner(file)
++// 	for scanner.Scan() {
++// 		text := scanner.Text()
++// 		line := strings.Fields(text)
++
++// 		if line[0] == "MemTotal:" {
++// 			memInfo.memTotal = line[1]
++// 			total, _ = strconv.Atoi(memInfo.memTotal)
++// 			total /= 1000000
++// 		}
++// 		if line[0] == "MemFree:" {
++// 			// if cnt, _ := fmt.Sscanf(text, "%f", &memInfo.memFree); cnt < 0 {
++// 			// 	fmt.Print(memInfo.memFree)
++// 			// 	os.Exit(1)
++// 			// }
++// 			memInfo.memFree = line[1]
++// 			free, _ = strconv.Atoi(memInfo.memFree)
++// 			free /= 1000000
++// 		}
++// 		if line[0] == "MemAvailable:" {
++// 			memInfo.MemAvailable = line[1]
++// 			avail, _ = strconv.Atoi(memInfo.MemAvailable)
++// 			avail /= 1000000
++// 			// if cnt, _ := fmt.Sscanf(text, "%s %s %f", &a, &b, &memInfo.MemAvailable); cnt < 0 {
++// 			// 	os.Exit(1)
++// 			// }
++// 		}
++// 	}
++// 	scanner.Err()
++// 	return total, free, avail
++// }
+diff --git a/metrics/net_io.go b/metrics/net_io.go
+index f08aa45..22acc1e 100644
+--- a/metrics/net_io.go
++++ b/metrics/net_io.go
+@@ -3,9 +3,7 @@ package metrics
+ import (
+ 	"bufio"
+ 	"fmt"
+-	"os"
+ 	"strings"
+-	"time"
+ )
+ 
+ type receiveNetStat struct {
+@@ -31,25 +29,7 @@ type transmittedNetStat struct {
+ 	compressed float64
+ }
+ 
+-// get the block devices on the system
+-func GetInterfaceTypes() ([]string, error) {
+-
+-	interfaceSlice := []string{}
+-	dirEntry, err := os.ReadDir("/sys/class/net")
+-	if err != nil {
+-		return []string{}, err
+-	}
+-
+-	for _, v := range dirEntry {
+-		interfaceSlice = append(interfaceSlice, v.Name())
+-	}
+-
+-	return interfaceSlice, nil
+-}
+-
+-// function to get net stats from the '/proc/net/dev' file
+-// this function is used by all other functions in the file to plot graphs
+-func getNetStats(interfaceName string) (receiveNetStat, transmittedNetStat, error) {
++func getNetStats() (receiveNetStat, transmittedNetStat, error) {
+ 
+ 	recNet := receiveNetStat{}
+ 	transmNet := transmittedNetStat{}
+@@ -65,7 +45,7 @@ func getNetStats(interfaceName string) (receiveNetStat, transmittedNetStat, erro
+ 		text := scanner.Text()
+ 		line := strings.Fields(text)
+ 
+-		if line[0] == fmt.Sprintf("%s:", interfaceName) {
++		if line[0] == "eth0:" {
+ 			cnt, err := fmt.Sscanf(text,
+ 				"%s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
+ 				&recNet.face, &recNet.bytes, &recNet.packets, &recNet.errs,
+@@ -95,9 +75,9 @@ func getNetStats(interfaceName string) (receiveNetStat, transmittedNetStat, erro
+ var packRec float64
+ var packTransm float64
+ 
+-func GetPacketsStat(interfaceName string) (float64, float64, error) {
++func GetPacketsStat() (float64, float64, error) {
+ 	if packRec == 0 && packTransm == 0 {
+-		oldrecPack, oldtransPack, err := getNetStats(interfaceName)
++		oldrecPack, oldtransPack, err := getNetStats()
+ 		if err != nil {
+ 			panic(err)
+ 		}
+@@ -107,7 +87,7 @@ func GetPacketsStat(interfaceName string) (float64, float64, error) {
+ 		return 0.0, 0.0, nil
+ 	}
+ 
+-	newrecPack, newtransPack, err := getNetStats(interfaceName)
++	newrecPack, newtransPack, err := getNetStats()
+ 	if err != nil {
+ 		panic(err)
+ 	}
+@@ -120,36 +100,3 @@ func GetPacketsStat(interfaceName string) (float64, float64, error) {
+ 
+ 	return recPackDelta, transmPackDelta, nil
+ }
+-
+-// get netio stats for bytes received and transmitted
+-
+-var byteRec float64
+-var byteTransm float64
+-
+-func GetBytesStat(interfaceName string) (float64, float64, error) {
+-	if byteRec == 0 && byteTransm == 0 {
+-		oldrecByte, oldtransByte, err := getNetStats(interfaceName)
+-		if err != nil {
+-			panic(err)
+-		}
+-
+-		byteRec = oldrecByte.bytes
+-		byteTransm = oldtransByte.bytes
+-		// return 0.0, 0.0, nil
+-	}
+-
+-	time.Sleep(time.Second * 1)
+-	newrecByte, newtransByte, err := getNetStats(interfaceName)
+-	if err != nil {
+-		panic(err)
+-	}
+-
+-	fmt.Println("f", byteRec, newrecByte.bytes)
+-	recByteDelta := (newrecByte.bytes - byteRec) / 1024
+-	transmByteDelta := (newtransByte.bytes - byteTransm) / 1024
+-
+-	byteRec = newrecByte.bytes
+-	byteTransm = newtransByte.bytes
+-
+-	return recByteDelta, transmByteDelta, nil
+-}
+diff --git a/metrics/process.go b/metrics/process.go
+new file mode 100644
+index 0000000..581f07d
+--- /dev/null
++++ b/metrics/process.go
+@@ -0,0 +1,92 @@
++package metrics
++
++// import (
++// 	"bufio"
++// 	"fmt"
++// 	"strconv"
++
++// 	"github.com/vak-rashu/levenshtein-cli"
++// )
++
++// // metrics show process <process-name>
++
++// type processStat struct {
++// 	pid         int32
++// 	processName string
++// 	state       rune
++// 	ppid        int32
++// 	pgrp        int32
++// 	session     int32
++// 	tty_nr      int32
++// 	tpgid       int32
++// 	flags       uint
++// 	minflt      uint32
++// 	cminflt     uint64
++// 	majflt      uint32
++// 	cmajflt     uint64
++// 	utime       uint64
++// 	stime       uint64
++// 	cutime      int32
++// 	cstime      int64
++// 	priority    int64
++// 	nice        int64
++// 	numThreads  int64
++// }
++
++// // returns the process stats
++// func ShowPerProcessData(arg string) ([]string, processStat, error) {
++// 	// _, pid := matchProcess(arg)
++
++// 	list, pid := levenshtein.Loop(arg)
++// 	if pid != 0 {
++// 		pidString := strconv.Itoa(pid)
++
++// 		processFilePath := procPath(fmt.Sprintf("/%s/stat", pidString))
++// 		file, err := openPath(processFilePath)
++// 		if err != nil {
++// 			return nil, processStat{}, err
++// 		}
++
++// 		defer file.Close()
++
++// 		procStat := processStat{}
++
++// 		scanner := bufio.NewScanner(file)
++
++// 		for scanner.Scan() {
++// 			line := scanner.Text()
++
++// 			count, err := fmt.Sscanf(
++// 				line,
++// 				"%d %s %c %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
++// 				&procStat.pid, &procStat.processName, &procStat.state, &procStat.ppid, &procStat.pgrp,
++// 				&procStat.session, &procStat.tty_nr, &procStat.tpgid, &procStat.flags, &procStat.minflt,
++// 				&procStat.cminflt, &procStat.majflt, &procStat.cmajflt, &procStat.utime,
++// 				&procStat.stime, &procStat.cutime, &procStat.cstime, &procStat.priority,
++// 				&procStat.nice, &procStat.numThreads,
++// 			)
++
++// 			if err != nil {
++// 				return nil, processStat{}, fmt.Errorf("kd%v", err)
++// 			}
++
++// 			if count == 0 {
++// 				return nil, processStat{}, fmt.Errorf("%v", err)
++// 			}
++
++// 			procStat.utime /= clockTick
++// 			procStat.stime /= clockTick
++// 			procStat.cutime /= clockTick
++// 			procStat.cstime /= clockTick
++// 		}
++
++// 		if err := scanner.Err(); err != nil {
++// 			return nil, processStat{}, err
++// 		}
++
++// 		return nil, procStat, nil
++
++// 	} else {
++// 		return list, processStat{}, nil
++// 	}
++// }
+diff --git a/process.go b/process.go
+new file mode 100644
+index 0000000..d0aa076
+--- /dev/null
++++ b/process.go
+@@ -0,0 +1,37 @@
++/*
++Copyright © 2026 NAME HERE <EMAIL ADDRESS>
++*/
++package main
++
++// import (
++// 	"fmt"
++
++// 	"github.com/spf13/cobra"
++// 	metrics "github.com/vak-rashu/metrics-go/metrics"
++// )
++
++// // processCmd represents the cpu command
++// var processCmd = &cobra.Command{
++// 	Use:   "process",
++// 	Short: "A brief description of your command",
++// 	Long: `A longer description that spans multiple lines and likely contains examples
++// and usage of using your command. For example:
++
++// Cobra is a CLI library for Go that empowers applications.
++// This application is a tool to generate the needed files
++// to quickly create a Cobra application.`,
++
++// 	Args: cobra.ExactArgs(1),
++// 	RunE: func(cmd *cobra.Command, args []string) error {
++// 		list, processStat, err := metrics.ShowPerProcessData(args[0])
++// 		if err != nil {
++// 			return err
++// 		}
++
++// 		fmt.Println(list, processStat)
++
++// 		return nil
++// 	},
++// }
++
++// func init() {}
+diff --git a/show.go b/show.go
+index 16345a0..d97fb2f 100644
+--- a/show.go
++++ b/show.go
+@@ -4,8 +4,9 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
+ package main
+ 
+ import (
++	"fmt"
++
+ 	"github.com/spf13/cobra"
+-	tui "github.com/vak-rashu/metrics-go/ui"
+ )
+ 
+ // showCmd represents the show command
+@@ -19,8 +20,11 @@ Cobra is a CLI library for Go that empowers applications.
+ This application is a tool to generate the needed files
+ to quickly create a Cobra application.`,
+ 	Run: func(cmd *cobra.Command, args []string) {
+-		tui.CreateChart()
++		fmt.Println("use with cpu or cpu --all")
+ 	},
+ }
+ 
+-func init() {}
++// func init() {
++// 	showCmd.AddCommand(cpuCmd)
++// 	showCmd.AddCommand(processCmd)
++// }
+diff --git a/ui/app.go b/ui/app.go
+index 9f8453c..e20593a 100644
+--- a/ui/app.go
++++ b/ui/app.go
+@@ -5,48 +5,14 @@ import (
+ 	"os"
+ 
+ 	"github.com/NimbleMarkets/go-booba"
+-	"github.com/NimbleMarkets/ntcharts/v2/sparkline"
+ )
+ 
+ func CreateChart() {
+-	width := 25
+-	height := 12
+-
+-	m := model{
+-		cpu: sparkline.New(
+-			width,
+-			height/4,
+-			sparkline.WithMaxValue(100.0),
+-			sparkline.WithStyle(cpuStyle),
+-		),
+-
+-		diskRead: sparkline.New(
+-			width,
+-			height/4,
+-			sparkline.WithStyle(diskReadStyle),
+-		),
+-
+-		diskWrite: sparkline.New(
+-			width,
+-			height/4,
+-			sparkline.WithStyle(diskWriteStyle),
+-		),
+-
+-		netRX: sparkline.New(
+-			width,
+-			height/4,
+-			sparkline.WithStyle(netRXStyle),
+-		),
+-
+-		netTX: sparkline.New(
+-			width,
+-			height/4,
+-			sparkline.WithStyle(netTXStyle),
+-		),
+-	}
++	m := NewModel()
+ 
+ 	if err := booba.Run(m); err != nil {
+ 		fmt.Println("Error running program:", err)
+ 		os.Exit(1)
+ 	}
+ }
++
+diff --git a/ui/cpu_tui.go b/ui/cpu_tui.go
+new file mode 100644
+index 0000000..f101f9e
+--- /dev/null
++++ b/ui/cpu_tui.go
+@@ -0,0 +1,61 @@
++package tui
++
++// import (
++// 	"fmt"
++
++// 	tea "charm.land/bubbletea/v2"
++// 	gloss "charm.land/lipgloss/v2"
++// 	metrics "github.com/vak-rashu/metrics-go/pkg"
++// )
++
++// // stat model follows interface Model
++// type stat struct {
++// 	msg string
++// 	val metrics.CPUStat
++// 	err error
++// }
++
++// func (c stat) Init() tea.Cmd {
++// 	c.msg = "Metrics"
++// 	return func() tea.Msg {
++// 		gloss.Println(headLineStyle.Render(c.msg))
++// 		return nil
++// 	}
++// }
++
++// func (c stat) View() tea.View {
++// 	if c.err != nil {
++// 		return tea.NewView(fmt.Sprint(c.err))
++// 	} else {
++// 		return tea.NewView(fmt.Sprintf("Values are: %v", c.val))
++// 	}
++// }
++
++// func (c stat) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
++// 	switch msg := msg.(type) {
++// 	case tea.KeyMsg:
++// 		switch msg.String() {
++// 		case "m":
++// 			return c, getCPUStat()
++// 		case "q":
++// 			return c, tea.Quit
++// 		}
++// 	case metrics.CPUStat:
++// 		c.val = msg
++// 		return c, nil
++// 	case error:
++// 		c.err = msg
++// 		return c, nil
++// 	}
++// 	return c, nil
++// }
++
++// func getCPUStat() tea.Cmd {
++// 	return func() tea.Msg {
++// 		if cpu, err := metrics.CalculateCPUStat(); err != nil {
++// 			return err
++// 		} else {
++// 			return cpu
++// 		}
++// 	}
++// }
+diff --git a/ui/metrics_tui.go b/ui/metrics_tui.go
+index acadee8..315fe62 100644
+--- a/ui/metrics_tui.go
++++ b/ui/metrics_tui.go
+@@ -15,46 +15,157 @@ import (
+ 
+ type tickMsg time.Time
+ 
+-// fetch frequency of the timer
+ var fetchFrequency = 1 * time.Second
+ 
+-// width of the screen
+-const width = 40
++const (
++	smallWidth  = 28
++	smallHeight = 5
+ 
+-type model struct {
+-	cpu sparkline.Model
++	detailWidth  = 70
++	detailHeight = 15
++)
++
++type metricType int
++
++const (
++	cpuMetric metricType = iota
++	memoryMetric
++	diskMetric
++	networkMetric
++)
++
++func (m model) metricBox(
++	title string,
++	graph string,
++	metric metricType,
++) string {
++
++	style := defaultStyle.
++		Width(smallWidth).
++		Height(smallHeight)
++
++	// Highlight selected metric
++	if m.selected == metric {
++		style = style.BorderStyle(gloss.ThickBorder())
++	} else {
++		style = style.BorderStyle(gloss.NormalBorder())
++	}
++
++	return style.Render(
++		fmt.Sprintf(
++			"%s\n%s",
++			title,
++			graph,
++		),
++	)
++}
+ 
++type model struct {
++	// Small graphs
++	cpu       sparkline.Model
++	memory    sparkline.Model
+ 	diskRead  sparkline.Model
+ 	diskWrite sparkline.Model
++	netRX     sparkline.Model
++	netTX     sparkline.Model
+ 
+-	netRX sparkline.Model
+-	netTX sparkline.Model
++	// Large/detail graphs
++	cpuDetail    sparkline.Model
++	memoryDetail sparkline.Model
++	diskDetail   sparkline.Model
++	netDetail    sparkline.Model
+ 
++	// Current values
+ 	cpuPerc float64
+ 
++	memoryPerc   float64
++	memTotal     int
++	memFree      int
++	memAvailable int
++
+ 	diskReadIOPS  float64
+ 	diskWriteIOPS float64
+ 
+ 	netRXPackets float64
+ 	netTXPackets float64
+ 
+-	memTotal     float64
+-	memFree      float64
+-	memAvailable float64
+-
+-	selected map[int]struct{}
++	// Currently selected metric
++	selected metricType
+ }
+ 
+ func NewModel() model {
++	innerSmallWidth := smallWidth - 2
++	innerDetailWidth := detailWidth - 2
+ 
+ 	return model{
+-		cpu: sparkline.New(width, 3, sparkline.WithStyle(cpuStyle)),
++		// Small graphs
++		cpu: sparkline.New(
++			innerSmallWidth,
++			2,
++			sparkline.WithMaxValue(100.0),
++			sparkline.WithStyle(cpuStyle),
++		),
+ 
+-		diskRead:  sparkline.New(width, 2, sparkline.WithStyle(diskReadStyle)),
+-		diskWrite: sparkline.New(width, 2, sparkline.WithStyle(diskWriteStyle)),
++		memory: sparkline.New(
++			innerSmallWidth,
++			2,
++			sparkline.WithMaxValue(100.0),
++			sparkline.WithStyle(cpuStyle),
++		),
++
++		diskRead: sparkline.New(
++			innerSmallWidth,
++			1,
++			sparkline.WithStyle(diskReadStyle),
++		),
++
++		diskWrite: sparkline.New(
++			innerSmallWidth,
++			1,
++			sparkline.WithStyle(diskWriteStyle),
++		),
++
++		netRX: sparkline.New(
++			innerSmallWidth,
++			1,
++			sparkline.WithStyle(netRXStyle),
++		),
++
++		netTX: sparkline.New(
++			innerSmallWidth,
++			1,
++			sparkline.WithStyle(netTXStyle),
++		),
++
++		// Large graphs
++		cpuDetail: sparkline.New(
++			innerDetailWidth,
++			detailHeight,
++			sparkline.WithMaxValue(100.0),
++			sparkline.WithStyle(cpuStyle),
++		),
++
++		memoryDetail: sparkline.New(
++			innerDetailWidth,
++			detailHeight,
++			sparkline.WithMaxValue(100.0),
++			sparkline.WithStyle(cpuStyle),
++		),
++
++		diskDetail: sparkline.New(
++			innerDetailWidth,
++			detailHeight,
++			sparkline.WithStyle(diskReadStyle),
++		),
+ 
+-		netRX: sparkline.New(width, 2, sparkline.WithStyle(netRXStyle)),
+-		netTX: sparkline.New(width, 2, sparkline.WithStyle(netTXStyle)),
++		netDetail: sparkline.New(
++			innerDetailWidth,
++			detailHeight,
++			sparkline.WithStyle(netRXStyle),
++		),
++
++		// CPU selected by default
++		selected: cpuMetric,
+ 	}
+ }
+ 
+@@ -69,163 +180,267 @@ func (m model) Init() tea.Cmd {
+ }
+ 
+ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
++
+ 	switch msg := msg.(type) {
+ 
+ 	case tea.KeyMsg:
++
+ 		switch msg.String() {
++
+ 		case "q", "ctrl+c":
+ 			return m, tea.Quit
++
++		case "up", "k":
++			if m.selected > cpuMetric {
++				m.selected--
++			}
++
++		case "down", "j":
++			if m.selected < networkMetric {
++				m.selected++
++			}
++		}
++
++	case tea.MouseClickMsg:
++
++		if msg.X >= 0 && msg.X < smallWidth {
++			if msg.Y >= 0 && msg.Y <= 4 {
++				m.selected = cpuMetric
++			} else if msg.Y >= 6 && msg.Y <= 10 {
++				m.selected = memoryMetric
++			} else if msg.Y >= 12 && msg.Y <= 16 {
++				m.selected = diskMetric
++			} else if msg.Y >= 18 && msg.Y <= 22 {
++				m.selected = networkMetric
++			}
+ 		}
+ 
+ 	case tickMsg:
+ 
+ 		// ---------------- CPU ----------------
++
+ 		cpuPerc, err := metrics.CalculateCPUStatPerc()
+ 		if err != nil {
+ 			fmt.Println("CPU:", err)
+ 		} else {
+ 			m.cpuPerc = cpuPerc
++
++			// Small graph
+ 			m.cpu.Push(cpuPerc)
+ 			m.cpu.DrawBraille()
++
++			// Large graph
++			m.cpuDetail.Push(cpuPerc)
++			m.cpuDetail.DrawBraille()
++		}
++
++		// ---------------- MEMORY ----------------
++
++		total, free, available, err := metrics.GetMemStats()
++
++		if err != nil {
++			fmt.Println("Memory:", err)
++		} else {
++			m.memTotal = total
++			m.memFree = free
++			m.memAvailable = available
++
++			if total > 0 {
++				m.memoryPerc =
++					float64(total-available) /
++						float64(total) *
++						100
++
++				// Small graph
++				m.memory.Push(m.memoryPerc)
++				m.memory.DrawBraille()
++
++				// Large graph
++				m.memoryDetail.Push(m.memoryPerc)
++				m.memoryDetail.DrawBraille()
++			}
+ 		}
+ 
+ 		// ---------------- DISK READ ----------------
+-		// add block name here
+-		readIOPS, err := metrics.GetDiskReadIOPS("")
++
++		readIOPS, err := metrics.GetDiskReadIOPS()
++
+ 		if err != nil {
+ 			fmt.Println("Disk read:", err)
+ 		} else {
+ 			m.diskReadIOPS = readIOPS
++
++			// Small graph
+ 			m.diskRead.Push(readIOPS)
+ 			m.diskRead.DrawBraille()
++
++			// Large graph
++			m.diskDetail.Push(readIOPS)
++			m.diskDetail.DrawBraille()
+ 		}
+ 
+ 		// ---------------- DISK WRITE ----------------
+-		// add blockname here
+-		writeIOPS, err := metrics.GetDiskWriteIOPS("")
++
++		writeIOPS, err := metrics.GetDiskWriteIOPS()
++
+ 		if err != nil {
+ 			fmt.Println("Disk write:", err)
+ 		} else {
+ 			m.diskWriteIOPS = writeIOPS
++
+ 			m.diskWrite.Push(writeIOPS)
+ 			m.diskWrite.DrawBraille()
+ 		}
+ 
+ 		// ---------------- NETWORK ----------------
+-		// add interface name
+-		rxPackets, txPackets, err := metrics.GetPacketsStat("")
++
++		rxPackets, txPackets, err := metrics.GetPacketsStat()
++
+ 		if err != nil {
+ 			fmt.Println("Network:", err)
+ 		} else {
+ 			m.netRXPackets = rxPackets
+ 			m.netTXPackets = txPackets
++
++			// Small graphs
+ 			m.netRX.Push(rxPackets)
+-			m.netTX.Push(txPackets)
+ 			m.netRX.DrawBraille()
++
++			m.netTX.Push(txPackets)
+ 			m.netTX.DrawBraille()
+-		}
+ 
+-		// ---------------- MEMORY ----------------
+-		total, free, available, err := metrics.GetMemStats()
+-		if err != nil {
+-			fmt.Println("Memory:", err)
+-		} else {
+-			m.memTotal = total
+-			m.memFree = free
+-			m.memAvailable = available
++			// Large graph
++			m.netDetail.Push(rxPackets)
++			m.netDetail.DrawBraille()
+ 		}
+ 
+ 		return m, doTick()
+ 	}
++
+ 	return m, nil
+ }
+ 
+ func (m model) View() tea.View {
+ 
+-	const panelWidth = 48
++	// ---------------- LEFT SIDEBAR ----------------
+ 
+-	// ---------------- CPU ----------------
+-	cpuPanel := defaultStyle.Width(panelWidth).Render(
+-		fmt.Sprintf(
+-			"CPU\n"+
+-				"Active: %.2f%%\n\n"+
+-				"%s",
+-			m.cpuPerc,
+-			m.cpu.View(),
+-		),
++	cpuBox := m.metricBox(
++		"CPU",
++		m.cpu.View(),
++		cpuMetric,
+ 	)
+ 
+-	// ---------------- MEMORY ----------------
+-	memPanel := defaultStyle.Width(panelWidth).Render(
+-		fmt.Sprintf(
+-			"Memory\n\n"+
+-				"Total:     %.2f GB\n"+
+-				"Free:      %.2f GB\n"+
+-				"Available: %.2f GB",
+-			m.memTotal,
+-			m.memFree,
+-			m.memAvailable,
+-		),
++	memoryBox := m.metricBox(
++		"Memory",
++		m.memory.View(),
++		memoryMetric,
+ 	)
+ 
+-	// ---------------- DISK ----------------
+-	diskPanel := defaultStyle.Width(panelWidth).Render(
+-		fmt.Sprintf(
+-			"Disk I/O\n\n"+
+-				"Read IOPS:  %.0f\n"+
+-				"Write IOPS: %.0f\n\n"+
+-				"Read\n"+
+-				"%s\n\n"+
+-				"Write\n"+
+-				"%s",
+-			m.diskReadIOPS,
+-			m.diskWriteIOPS,
+-			m.diskRead.View(),
+-			m.diskWrite.View(),
+-		),
++	diskGraph := gloss.JoinVertical(
++		gloss.Left,
++		m.diskRead.View(),
++		m.diskWrite.View(),
+ 	)
+ 
+-	// ---------------- NETWORK ----------------
+-	networkPanel := defaultStyle.Width(panelWidth).Render(
+-		fmt.Sprintf(
+-			"Network\n\n"+
+-				"RX: %.0f packets/s\n"+
+-				"TX: %.0f packets/s\n\n"+
+-				"RX\n"+
+-				"%s\n\n"+
+-				"TX\n"+
+-				"%s",
+-			m.netRXPackets,
+-			m.netTXPackets,
+-			m.netRX.View(),
+-			m.netTX.View(),
+-		),
++	diskBox := m.metricBox(
++		"Disk",
++		diskGraph,
++		diskMetric,
+ 	)
+ 
+-	// ---------------- 2 × 2 LAYOUT ----------------
+-	topRow := gloss.JoinHorizontal(
+-		gloss.Top,
+-		cpuPanel,
+-		memPanel,
++	networkGraph := gloss.JoinVertical(
++		gloss.Left,
++		m.netRX.View(),
++		m.netTX.View(),
+ 	)
+ 
+-	bottomRow := gloss.JoinHorizontal(
+-		gloss.Top,
+-		diskPanel,
+-		networkPanel,
++	networkBox := m.metricBox(
++		"Network",
++		networkGraph,
++		networkMetric,
+ 	)
+ 
+-	// Put the two rows together.
+-	dashboard := gloss.JoinVertical(
++	sidebar := gloss.JoinVertical(
+ 		gloss.Left,
+-		topRow,
++		cpuBox,
++		"",
++		memoryBox,
++		"",
++		diskBox,
+ 		"",
+-		bottomRow,
++		networkBox,
++	)
++
++	// ---------------- RIGHT DETAIL PANEL ----------------
++
++	var detailGraph string
++	var detailValue string
++	var title string
++
++	switch m.selected {
++
++	case cpuMetric:
++		title = "CPU"
++		detailGraph = m.cpuDetail.View()
++		detailValue = fmt.Sprintf(
++			"Utilization: %.2f%%",
++			m.cpuPerc,
++		)
++
++	case memoryMetric:
++		title = "Memory"
++		detailGraph = m.memoryDetail.View()
++		detailValue = fmt.Sprintf(
++			"Utilization: %.2f%%\nTotal: %d GB    Available: %d GB    Free: %d GB",
++			m.memoryPerc,
++			m.memTotal,
++			m.memAvailable,
++			m.memFree,
++		)
++
++	case diskMetric:
++		title = "Disk"
++		detailGraph = m.diskDetail.View()
++		detailValue = fmt.Sprintf(
++			"Read IOPS: %.0f    Write IOPS: %.0f",
++			m.diskReadIOPS,
++			m.diskWriteIOPS,
++		)
++
++	case networkMetric:
++		title = "Network"
++		detailGraph = m.netDetail.View()
++		detailValue = fmt.Sprintf(
++			"RX: %.0f packets/s    TX: %.0f packets/s",
++			m.netRXPackets,
++			m.netTXPackets,
++		)
++	}
++
++	detailPanel := defaultStyle.
++		Width(detailWidth).
++		Height(detailHeight + 7).
++		Render(
++			fmt.Sprintf(
++				"%s\n\n%s\n\n%s",
++				title,
++				detailGraph,
++				detailValue,
++			),
++		)
++
++	// ---------------- FINAL LAYOUT ----------------
++
++	layout := gloss.JoinHorizontal(
++		gloss.Top,
++		sidebar,
++		"    ",
++		detailPanel,
+ 	)
+ 
+-	// return tea.NewView(dashboard)
++	// return tea.NewView(layout)
+ 
+-	v := tea.NewView(dashboard)
++	v := tea.NewView(layout)
+ 	v.AltScreen = true
+ 	return v
+ }
+diff --git a/ui/styles.go b/ui/styles.go
+index 94ef1e2..170e28f 100644
+--- a/ui/styles.go
++++ b/ui/styles.go
+@@ -18,3 +18,21 @@ var netRXStyle = gloss.NewStyle().
+ 	Foreground(gloss.Color("6")) // cyan
+ var netTXStyle = gloss.NewStyle().
+ 	Foreground(gloss.Color("5")) // magenta
++
++	// var headLineStyle = gloss.NewStyle().
++	// 	Width(100).
++	// 	Align(gloss.Center).
++	// 	Background(gloss.Color("3")).
++	// 	Foreground(gloss.Color("12"))
++
++	// var tabStyle = gloss.NewStyle().
++	// 	Border(gloss.RoundedBorder()).
++	// 	PaddingLeft(1).
++	// 	PaddingRight(1).
++	// 	BorderForeground(gloss.Color("183"))
++
++	// var blocks = []string{
++	// 	"CPU",
++	// 	"Processes",
++	// 	"Memory",
++	// }
