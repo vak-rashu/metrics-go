@@ -352,13 +352,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "tab":
 			m.tabSelected = (m.tabSelected + 1) % 3
-			switch m.tabSelected{
+			switch m.tabSelected {
 			case 0:
 				m.activeTab = 0
 			case 1:
-				m.activeTab =1
+				m.activeTab = 1
 			case 2:
-				m.activeTab =2
+				m.activeTab = 2
 			}
 
 		case "1":
@@ -562,9 +562,7 @@ func (m model) View() tea.View {
 		memoryMetric,
 	)
 
-	diskTitle := fmt.Sprintf(
-		"Disk",
-	)
+	diskTitle := "Disk"
 	diskGraph := gloss.JoinVertical(
 		gloss.Left,
 		m.diskRead.View(),
@@ -577,9 +575,7 @@ func (m model) View() tea.View {
 		diskMetric,
 	)
 
-	netTitle := fmt.Sprintf(
-		"Net",
-	)
+	netTitle := "Net"
 	networkGraph := gloss.JoinVertical(
 		gloss.Left,
 		m.netRX.View(),
@@ -733,4 +729,3 @@ func (m model) View() tea.View {
 	v.AltScreen = true
 	return v
 }
-
