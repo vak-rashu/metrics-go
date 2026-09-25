@@ -1,5 +1,3 @@
-// cmd: metrics tui
-
 package tui
 
 import (
