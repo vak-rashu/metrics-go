@@ -18,21 +18,3 @@ var netRXStyle = gloss.NewStyle().
 	Foreground(gloss.Color("6")) // cyan
 var netTXStyle = gloss.NewStyle().
 	Foreground(gloss.Color("5")) // magenta
-
-	// var headLineStyle = gloss.NewStyle().
-	// 	Width(100).
-	// 	Align(gloss.Center).
-	// 	Background(gloss.Color("3")).
-	// 	Foreground(gloss.Color("12"))
-
-	// var tabStyle = gloss.NewStyle().
-	// 	Border(gloss.RoundedBorder()).
-	// 	PaddingLeft(1).
-	// 	PaddingRight(1).
-	// 	BorderForeground(gloss.Color("183"))
-
-	// var blocks = []string{
-	// 	"CPU",
-	// 	"Processes",
-	// 	"Memory",
-	// }

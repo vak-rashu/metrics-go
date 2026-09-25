@@ -79,9 +79,9 @@ type model struct {
 	cpuPerc float64
 
 	memoryPerc   float64
-	memTotal     int
-	memFree      int
-	memAvailable int
+	memTotal     float64
+	memFree      float64
+	memAvailable float64
 
 	diskReadIOPS  float64
 	diskWriteIOPS float64
@@ -236,7 +236,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// ---------------- MEMORY ----------------
 
-		total, free, available, err := metrics.GetMemStats()
+		total, free, available, _, _, err := metrics.GetMemStats()
 
 		if err != nil {
 			fmt.Println("Memory:", err)
@@ -263,7 +263,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// ---------------- DISK READ ----------------
 
-		readIOPS, err := metrics.GetDiskReadIOPS()
+		readIOPS, err := metrics.GetDiskReadIOPS("")
 
 		if err != nil {
 			fmt.Println("Disk read:", err)
@@ -281,7 +281,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// ---------------- DISK WRITE ----------------
 
-		writeIOPS, err := metrics.GetDiskWriteIOPS()
+		writeIOPS, err := metrics.GetDiskWriteIOPS("")
 
 		if err != nil {
 			fmt.Println("Disk write:", err)
@@ -294,7 +294,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// ---------------- NETWORK ----------------
 
-		rxPackets, txPackets, err := metrics.GetPacketsStat()
+		rxPackets, txPackets, err := metrics.GetPacketsStat("")
 
 		if err != nil {
 			fmt.Println("Network:", err)

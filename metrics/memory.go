@@ -6,22 +6,26 @@ import (
 	"strings"
 )
 
-// represents the following values only right now:
-// MemTotal , MemFree, MemAvailable
-
 type memStats struct {
-	memTotal     float64
-	memFree      float64
-	MemAvailable float64
+	name            string
+	memTotal        float64
+	memFree         float64
+	memAvailable    float64
+	memBuffers      float64
+	memCached       float64
+	memSReclaimable float64
 }
 
-var name string
+func GetMemStats() (float64, float64, float64, float64, float64, error) {
 
-var total int
-var free int
-var avail int
+	var (
+		total  float64
+		free   float64
+		avail  float64
+		cached float64
+		used   float64
+	)
 
-func GetMemStats() (int, int, int, error) {
 	path := procPath("meminfo")
 	file, err := openPath(path)
 	if err != nil {
@@ -35,84 +39,80 @@ func GetMemStats() (int, int, int, error) {
 		line := strings.Fields(text)
 
 		if line[0] == "MemTotal:" {
-			_, err := fmt.Sscanf(text, "%s %f", &name, &memInfo.memTotal)
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memTotal)
 			total = convertKBtoGB(memInfo.memTotal)
 
 			if err != nil {
-				return 0, 0, 0, err
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
 			}
-			// memInfo.memTotal = line[1]
-			// total, _ = strconv.Atoi(memInfo.memTotal)
-			// total /= 1000000
 		}
 		if line[0] == "MemFree:" {
-			_, err := fmt.Sscanf(text, "%s %f", &name, &memInfo.memFree)
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memFree)
 			free = convertKBtoGB(memInfo.memFree)
 
 			if err != nil {
-				return 0, 0, 0, err
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
 			}
-			// memInfo.memFree = line[1]
-			// free, _ = strconv.Atoi(memInfo.memFree)
-			// free /= 1000000
 		}
 		if line[0] == "MemAvailable:" {
-			// memInfo.MemAvailable = line[1]
-			// avail, _ = strconv.Atoi(memInfo.MemAvailable)
-			// avail /= 1000000
-			_, err := fmt.Sscanf(text, "%s %f", &name, &memInfo.MemAvailable)
-			avail = convertKBtoGB(memInfo.MemAvailable)
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memAvailable)
+			avail = convertKBtoGB(memInfo.memAvailable)
 
 			if err != nil {
-				return 0, 0, 0, err
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
+			}
+		}
+
+		if line[0] == "Buffers:" {
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memBuffers)
+
+			if err != nil {
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
+			}
+		}
+
+		if line[0] == "Cached:" {
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memCached)
+			cached = convertKBtoGB(memInfo.memCached)
+
+			if err != nil {
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
+			}
+		}
+
+		if line[0] == "SReclaimable:" {
+			_, err := fmt.Sscanf(text, "%s %f", &memInfo.name, &memInfo.memSReclaimable)
+
+			if err != nil {
+				return 0.0, 0.0, 0.0, 0.0, 0.0, err
 			}
 		}
 	}
-	scanner.Err()
-	return total, free, avail, nil
+
+	if err := scanner.Err(); err != nil {
+		return 0.0, 0.0, 0.0, 0.0, 0.0, err
+	}
+
+	used = convertKBtoGB(memInfo.memTotal - (memInfo.memFree + memInfo.memCached + memInfo.memBuffers + memInfo.memSReclaimable))
+	return total, free, avail, cached, used, nil
 }
 
-func convertKBtoGB(val float64) int {
-	val = val / 1000000
-	return int(val)
+func convertKBtoGB(val float64) float64 {
+	val = val / 1048576
+	return val
 }
 
-// func GetMemStats() (int, int, int) {
-// 	path := procPath("meminfo")
-// 	file, err := openPath(path)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	memInfo := memStats{}
+// get mem usage percentage
+func MemPerc() (float64, float64, float64, float64, error) {
 
-// 	scanner := bufio.NewScanner(file)
-// 	for scanner.Scan() {
-// 		text := scanner.Text()
-// 		line := strings.Fields(text)
+	total, free, avail, cached, used, err := GetMemStats()
+	if err != nil {
+		return 0.0, 0.0, 0.0, 0.0, err
+	}
+	percFree := (free / total) * 100
+	percAvail := (avail / total) * 100
+	percCached := (cached / total) * 100
+	percUsed := (used / total) * 100
 
-// 		if line[0] == "MemTotal:" {
-// 			memInfo.memTotal = line[1]
-// 			total, _ = strconv.Atoi(memInfo.memTotal)
-// 			total /= 1000000
-// 		}
-// 		if line[0] == "MemFree:" {
-// 			// if cnt, _ := fmt.Sscanf(text, "%f", &memInfo.memFree); cnt < 0 {
-// 			// 	fmt.Print(memInfo.memFree)
-// 			// 	os.Exit(1)
-// 			// }
-// 			memInfo.memFree = line[1]
-// 			free, _ = strconv.Atoi(memInfo.memFree)
-// 			free /= 1000000
-// 		}
-// 		if line[0] == "MemAvailable:" {
-// 			memInfo.MemAvailable = line[1]
-// 			avail, _ = strconv.Atoi(memInfo.MemAvailable)
-// 			avail /= 1000000
-// 			// if cnt, _ := fmt.Sscanf(text, "%s %s %f", &a, &b, &memInfo.MemAvailable); cnt < 0 {
-// 			// 	os.Exit(1)
-// 			// }
-// 		}
-// 	}
-// 	scanner.Err()
-// 	return total, free, avail
-// }
+	return percFree, percAvail, percCached, percUsed, nil
+}

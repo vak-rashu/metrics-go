@@ -3,17 +3,11 @@ package metrics
 import (
 	"bufio"
 	"fmt"
-	"os/exec"
+	"os"
+	"regexp"
+	"strconv"
 	"strings"
 )
-
-// disk io creates the graph of
-// number of reads and writes done
-
-// the values is taken from
-// {/proc/diskstats}
-// all metrics are cumulative
-// except field 9
 
 type diskStat struct {
 	minor          int
@@ -32,27 +26,46 @@ type diskStat struct {
 	// remaining fields are not added
 }
 
-// get the rootfs on the system
-func getMnt() string {
-	//make a wrapper to get the no. of mounts in the system
-	cmd := exec.Command("findmnt", "-n", "-o", "SOURCE", "/")
-	output, err := cmd.Output()
-	if err != nil {
-		panic(err)
-	}
-	val := string(output)
-	c := strings.Split(val, "/")
-	y := strings.TrimSpace(c[2])
+// get the block devices on the system
+func GetBlockDevice() ([]string, error) {
 
-	return y
+	dirSlice := []string{}
+	dirEntry, err := os.ReadDir("/sys/block")
+	if err != nil {
+		return []string{}, err
+	}
+
+	for _, v := range dirEntry {
+		if matched, _ := regexp.Match(`sd*`, []byte(v.Name())); matched {
+			dirSlice = append(dirSlice, v.Name())
+		}
+	}
+
+	return dirSlice, nil
 }
 
-func GetDiskStats() (diskStat, error) {
+// get sector size of each device
+func getBlockSize(blockName string) (float64, error) {
+	path := sysPath("block", blockName, "queue", "physical_block_size")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+
+	sectorSize, err := strconv.Atoi(strings.Trim(string(b), "\n"))
+	if err != nil {
+		return 0, err
+	}
+
+	return float64(sectorSize), nil
+}
+
+// function to get diskstats from the 'diskstats' file
+// this function is used by all other functions in the file to plot graphs
+func getDiskStats(blockName string) (diskStat, error) {
 
 	//get the struct value ready
 	disk := diskStat{}
-	// get mnts of the system
-	mntsRoot := getMnt()
 
 	// read proc file
 	path := procPath("diskstats")
@@ -66,7 +79,7 @@ func GetDiskStats() (diskStat, error) {
 		text := scanner.Text()
 		line := strings.Fields(text)
 
-		if line[2] == mntsRoot {
+		if line[2] == blockName {
 			cnt, err := fmt.Sscanf(text,
 				"%d %d %s %f %f %f %f %f %f %f %f %f %f",
 				&disk.minor, &disk.major, &disk.diskName,
@@ -92,25 +105,23 @@ func GetDiskStats() (diskStat, error) {
 	return disk, nil
 }
 
-// get stats for disk IOPS to
-// calculate how much IO is happening
-// by the system per second
+// calculate disk IOPS
 
 var oldreadComp float64
 
-func GetDiskReadIOPS() (float64, error) {
+func GetDiskReadIOPS(blockName string) (float64, error) {
 
 	if oldreadComp == 0 {
-		olddisk, err := GetDiskStats()
+		olddisk, err := getDiskStats(blockName)
 		if err != nil {
 			return 0.0, err
 		}
 
 		oldreadComp = olddisk.readComps
-		return 0.0, nil
+		// return 0.0, nil
 	}
 
-	newDisk, err := GetDiskStats()
+	newDisk, err := getDiskStats(blockName)
 	if err != nil {
 		return 0.0, err
 	}
@@ -124,19 +135,19 @@ func GetDiskReadIOPS() (float64, error) {
 
 var oldwriteComp float64
 
-func GetDiskWriteIOPS() (float64, error) {
+func GetDiskWriteIOPS(blockName string) (float64, error) {
 
 	if oldwriteComp == 0 {
-		olddisk, err := GetDiskStats()
+		olddisk, err := getDiskStats(blockName)
 		if err != nil {
 			return 0.0, err
 		}
 
 		oldwriteComp = olddisk.writesComp
-		return 0.0, nil
+		// return 0.0, nil
 	}
 
-	newDisk, err := GetDiskStats()
+	newDisk, err := getDiskStats(blockName)
 	if err != nil {
 		return 0.0, err
 	}
@@ -146,4 +157,68 @@ func GetDiskWriteIOPS() (float64, error) {
 	oldwriteComp = newDisk.writesComp
 
 	return diskDelta, nil
+}
+
+// calculate disk throughput
+
+var oldreadBytes float64
+
+func GetDiskReadBytes(blockName string) (float64, error) {
+
+	if oldreadBytes == 0 {
+		olddisk, err := getDiskStats(blockName)
+		if err != nil {
+			return 0.0, err
+		}
+
+		oldreadBytes = olddisk.sectorRead
+		// return 0.0, nil
+	}
+
+	newDisk, err := getDiskStats(blockName)
+	if err != nil {
+		return 0.0, err
+	}
+
+	b, err := getBlockSize(blockName)
+	if err != nil {
+		return 0.0, err
+	}
+
+	diskByteReadDelta := (newDisk.sectorRead - oldreadBytes) * b
+
+	oldreadBytes = newDisk.readComps
+
+	return diskByteReadDelta, nil
+}
+
+var oldwriteBytes float64
+
+func GetDiskWriteBytes(blockName string) (float64, error) {
+
+	if oldwriteBytes == 0 {
+		olddisk, err := getDiskStats(blockName)
+		if err != nil {
+			return 0.0, err
+		}
+
+		oldwriteBytes = olddisk.sectorsWritten
+		// return 0.0, nil
+	}
+
+	newDisk, err := getDiskStats(blockName)
+	if err != nil {
+		return 0.0, err
+	}
+
+	b, err := getBlockSize(blockName)
+	if err != nil {
+		return 0.0, err
+	}
+
+	diskByteWriteDelta := (newDisk.sectorsWritten - oldwriteBytes) * b
+
+	oldwriteBytes = newDisk.sectorsWritten
+
+	return diskByteWriteDelta, nil
 }
