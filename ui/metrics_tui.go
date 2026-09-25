@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/NimbleMarkets/ntcharts/v2/sparkline"
-	metrics "github.com/vak-rashu/metrics-go/metrics"
+	metrics "github.com/vak-rashu/metrics-go"
 
 	tea "charm.land/bubbletea/v2"
 	gloss "charm.land/lipgloss/v2"
