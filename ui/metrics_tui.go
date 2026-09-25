@@ -148,6 +148,11 @@ func (m *model) recalculateSizes() {
 		halfDetailH = 1
 	}
 
+	memQuarterH := detailGraphH / 4
+	if memQuarterH < 1 {
+		memQuarterH = 1
+	}
+
 	m.cpuDetail.Resize(detailGraphW, detailGraphH)
 	m.memoryDetail.Resize(detailGraphW, detailGraphH)
 
@@ -428,15 +433,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.memCached = cached
 			m.memUsed = used
 
-			percFree, percAvail, percCached, percUsed, errPerc := metrics.MemPerc()
-			_ = percFree
-			_ = percAvail
-			_ = percCached
-
-			if errPerc == nil {
-				m.memoryPerc = percUsed
-			} else if total > 0 {
-				m.memoryPerc = (used / total) * 100
+			if total > 0 {
+				m.memoryPerc = float64(total-avail) / float64(total) * 100
 			}
 
 			// Small graph
@@ -630,42 +628,22 @@ func (m model) View() tea.View {
 	case cpuMetric:
 		title = "CPU Performance"
 		detailGraph = m.cpuDetail.View()
-		textInfo = fmt.Sprintf(
-			"%s        %s        %s\n%-18s %-18s %-18s\n\n%s        %s        %s\n%-18s %-18s %-18s",
-			infoLabelStyle.Render("Utilization"),
-			infoLabelStyle.Render("Status"),
-			infoLabelStyle.Render("Fetch Rate"),
-			infoValueStyle.Render(fmt.Sprintf("%.2f%%", m.cpuPerc)),
-			infoValueStyle.Render("Active"),
-			infoValueStyle.Render(fetchFrequency.String()),
-
-			infoLabelStyle.Render("Architecture"),
-			infoLabelStyle.Render("Metrics Source"),
-			infoLabelStyle.Render("System Load"),
-			infoValueStyle.Render("System CPU"),
-			infoValueStyle.Render("/proc/stat"),
-			infoValueStyle.Render("Normal"),
-		)
+		colW := 22
+		r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Utilization"), infoLabelStyle.Width(colW).Render("Status"), infoLabelStyle.Width(colW).Render("Fetch Rate"))
+		r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f%%", m.cpuPerc)), infoValueStyle.Width(colW).Render("Active"), infoValueStyle.Width(colW).Render(fetchFrequency.String()))
+		r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Architecture"), infoLabelStyle.Width(colW).Render("Metrics Source"), infoLabelStyle.Width(colW).Render("System Load"))
+		r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render("System CPU"), infoValueStyle.Width(colW).Render("/proc/stat"), infoValueStyle.Width(colW).Render("Normal"))
+		textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
 
 	case memoryMetric:
 		title = "Memory Utilization"
 		detailGraph = m.memoryDetail.View()
-		textInfo = fmt.Sprintf(
-			"%s        %s        %s\n%-18s %-18s %-18s\n\n%s        %s        %s\n%-18s %-18s %-18s",
-			infoLabelStyle.Render("Utilization"),
-			infoLabelStyle.Render("Total Memory"),
-			infoLabelStyle.Render("Used Memory"),
-			infoValueStyle.Render(fmt.Sprintf("%.2f%%", m.memoryPerc)),
-			infoValueStyle.Render(fmt.Sprintf("%.2f GB", m.memTotal)),
-			infoValueStyle.Render(fmt.Sprintf("%.2f GB", m.memUsed)),
-
-			infoLabelStyle.Render("Available"),
-			infoLabelStyle.Render("Free Memory"),
-			infoLabelStyle.Render("Cached"),
-			infoValueStyle.Render(fmt.Sprintf("%.2f GB", m.memAvailable)),
-			infoValueStyle.Render(fmt.Sprintf("%.2f GB", m.memFree)),
-			infoValueStyle.Render(fmt.Sprintf("%.2f GB", m.memCached)),
-		)
+		colW := 22
+		r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Utilization"), infoLabelStyle.Width(colW).Render("Total Memory"), infoLabelStyle.Width(colW).Render("Used Memory"))
+		r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f%%", m.memoryPerc)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memTotal)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memUsed)))
+		r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Available"), infoLabelStyle.Width(colW).Render("Free Memory"), infoLabelStyle.Width(colW).Render("Cached"))
+		r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memAvailable)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memFree)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memCached)))
+		textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
 
 	case diskMetric:
 		title = fmt.Sprintf(
@@ -679,22 +657,12 @@ func (m model) View() tea.View {
 			m.diskWriteDetail.View(),
 		)
 		totalIOPS := m.diskReadIOPS + m.diskWriteIOPS
-		textInfo = fmt.Sprintf(
-			"%s        %s        %s\n%-18s %-18s %-18s\n\n%s        %s        %s\n%-18s %-18s %-18s",
-			infoLabelStyle.Render("Read IOPS"),
-			infoLabelStyle.Render("Write IOPS"),
-			infoLabelStyle.Render("Total IOPS"),
-			infoValueStyle.Render(fmt.Sprintf("%.0f", m.diskReadIOPS)),
-			infoValueStyle.Render(fmt.Sprintf("%.0f", m.diskWriteIOPS)),
-			infoValueStyle.Render(fmt.Sprintf("%.0f", totalIOPS)),
-
-			infoLabelStyle.Render("Storage Status"),
-			infoLabelStyle.Render("Metrics Source"),
-			infoLabelStyle.Render("Activity"),
-			infoValueStyle.Render("Healthy"),
-			infoValueStyle.Render("/proc/diskstats"),
-			infoValueStyle.Render("Active"),
-		)
+		colW := 22
+		r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Read IOPS"), infoLabelStyle.Width(colW).Render("Write IOPS"), infoLabelStyle.Width(colW).Render("Total IOPS"))
+		r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f", m.diskReadIOPS)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f", m.diskWriteIOPS)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f", totalIOPS)))
+		r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Storage Status"), infoLabelStyle.Width(colW).Render("Metrics Source"), infoLabelStyle.Width(colW).Render("Activity"))
+		r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render("Healthy"), infoValueStyle.Width(colW).Render("/proc/diskstats"), infoValueStyle.Width(colW).Render("Active"))
+		textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
 
 	case networkMetric:
 		title = fmt.Sprintf(
@@ -708,22 +676,12 @@ func (m model) View() tea.View {
 			m.netTXDetail.View(),
 		)
 		totalPkts := m.netRXPackets + m.netTXPackets
-		textInfo = fmt.Sprintf(
-			"%s        %s        %s\n%-18s %-18s %-18s\n\n%s        %s        %s\n%-18s %-18s %-18s",
-			infoLabelStyle.Render("RX Packets"),
-			infoLabelStyle.Render("TX Packets"),
-			infoLabelStyle.Render("Total Packets"),
-			infoValueStyle.Render(fmt.Sprintf("%.0f pkts/s", m.netRXPackets)),
-			infoValueStyle.Render(fmt.Sprintf("%.0f pkts/s", m.netTXPackets)),
-			infoValueStyle.Render(fmt.Sprintf("%.0f pkts/s", totalPkts)),
-
-			infoLabelStyle.Render("Interface"),
-			infoLabelStyle.Render("Link Status"),
-			infoLabelStyle.Render("Flow Direction"),
-			infoValueStyle.Render("All interfaces"),
-			infoValueStyle.Render("Connected"),
-			infoValueStyle.Render("Bi-directional"),
-		)
+		colW := 22
+		r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("RX Packets"), infoLabelStyle.Width(colW).Render("TX Packets"), infoLabelStyle.Width(colW).Render("Total Packets"))
+		r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f pkts/s", m.netRXPackets)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f pkts/s", m.netTXPackets)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f pkts/s", totalPkts)))
+		r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Interface"), infoLabelStyle.Width(colW).Render("Link Status"), infoLabelStyle.Width(colW).Render("Flow Direction"))
+		r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render("All interfaces"), infoValueStyle.Width(colW).Render("Connected"), infoValueStyle.Width(colW).Render("Bi-directional"))
+		textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
 	}
 
 	// Graph detail box covering top half (~50%)
