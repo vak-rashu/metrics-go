@@ -391,7 +391,7 @@ func (m model) View() tea.View {
 		title = "Memory"
 		detailGraph = m.memoryDetail.View()
 		detailValue = fmt.Sprintf(
-			"Utilization: %.2f%%\nTotal: %d GB    Available: %d GB    Free: %d GB",
+			"Utilization: %.2f%%\nTotal: %.2f GB    Available: %.2f GB    Free: %.2f GB",
 			m.memoryPerc,
 			m.memTotal,
 			m.memAvailable,
