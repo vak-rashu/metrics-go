@@ -8,7 +8,7 @@ METRICS takes a simpler approach by reading system statistics directly from Linu
 
 > **Understand what is happening on your system without unnecessary complexity.**
 
-<img width="800" height="418" alt="2026-09-2314-37-10online-video-cutter com-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/fe62dfcd-54b0-4d65-bb36-5c0b57a1a532" />
+<img width="1280" height="680" alt="rashuRAJESHWARI__metrics2026-09-2619-49-22online-video-cutter com-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/aa2d6cf0-1d6e-462c-8cee-3caa195a2612" />
 
 ---
 
