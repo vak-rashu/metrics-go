@@ -48,6 +48,7 @@ func GetProcessList() ([]string, error) {
 	return processList, nil
 }
 
+// returns the pointer of the processStat struct
 func ShowPerProcessData() (*processStat, error) {
 
 	procStat := &processStat{}
