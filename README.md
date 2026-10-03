@@ -60,6 +60,7 @@ cd metrics-go
 (If not already installed, you would need this)
 ```sudo apt-get update
 sudo apt-get install libsystemd-dev
-```
+
 ./build
 ./metrics-go show
+```
