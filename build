@@ -2,4 +2,4 @@
 GOOS=$(go env GOOS)
 GOARCH=$(go env GOARCH)
 
-GOOS=${GOOS} GOARCH=${GOARCH} go build -o ./metrics cmd/*
+GOOS=${GOOS} GOARCH=${GOARCH} go build -o ./metrics-go .

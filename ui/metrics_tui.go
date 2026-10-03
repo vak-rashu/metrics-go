@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/NimbleMarkets/ntcharts/v2/sparkline"
-	metrics "github.com/vak-rashu/metrics-go"
+	metrics "github.com/vak-rashu/metrics-go/metrics"
 
 	"github.com/coreos/go-systemd/sdjournal"
 	"github.com/coreos/go-systemd/v22/dbus"
