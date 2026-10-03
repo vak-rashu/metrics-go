@@ -20,6 +20,8 @@ var Failed []serviceStruct
 var Running []serviceStruct
 var Dead []serviceStruct
 
+// var Default []serviceStruct
+
 func GetRunServicesList() {
 
 	ctx := context.Background()
@@ -62,6 +64,17 @@ func GetRunServicesList() {
 			serviceList.loadState = v.LoadState
 
 			Dead = append(Dead, serviceList)
+
+			// default:
+			// 	serviceList := serviceStruct{}
+			// 	serviceList.name = v.Name
+			// 	serviceList.substate = v.SubState
+			// 	serviceList.activeState = v.ActiveState
+			// 	serviceList.desc = v.Description
+			// 	serviceList.jobID = v.JobId
+			// 	serviceList.loadState = v.LoadState
+
+			// 	Default = append(Default, serviceList)
 		}
 	}
 }
