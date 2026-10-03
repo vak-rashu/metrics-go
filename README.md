@@ -57,8 +57,8 @@ git clone https://github.com/vak-rashu/metrics-go.git
 cd metrics-go
 
 # Build and run
-(If not already installed, you would need this)
-```sudo apt-get update
+# (If not already installed, you would need this)
+sudo apt-get update
 sudo apt-get install libsystemd-dev
 
 ./build
