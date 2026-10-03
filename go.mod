@@ -7,6 +7,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/NimbleMarkets/go-booba v0.6.1-0.20260511134559-58814d532cc1
 	github.com/NimbleMarkets/ntcharts/v2 v2.2.0
+	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/spf13/cobra v1.10.2
 )
