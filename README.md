@@ -16,7 +16,9 @@ When working with environments such as WSL, lightweight servers, or development 
 **CPU Window**
 <img width="1280" height="680" alt="rashuRAJESHWARI__metrics2026-09-2619-49-22online-video-cutter com-ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/aa2d6cf0-1d6e-462c-8cee-3caa195a2612" />
 
-**Watch all you service with their name and logs at one place**
+---
+
+**Watch all your services with their names and logs at one place**
 <img width="800" height="425" alt="ezgif com-video-to-gif-converter" src="https://github.com/user-attachments/assets/9fb3a211-1c77-475a-ba33-b95374f4d86c" />
 
 ---
@@ -57,5 +59,9 @@ git clone https://github.com/vak-rashu/metrics-go.git
 cd metrics-go
 
 # Build and run
+(If not already installed, you would need this)
+```sudo apt-get update
+sudo apt-get install libsystemd-dev
+```
 ./build
 ./metrics-go show
