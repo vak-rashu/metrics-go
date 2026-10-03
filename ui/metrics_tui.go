@@ -1,11 +1,16 @@
 package tui
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/NimbleMarkets/ntcharts/v2/sparkline"
 	metrics "github.com/vak-rashu/metrics-go"
+
+	"github.com/coreos/go-systemd/sdjournal"
+	"github.com/coreos/go-systemd/v22/dbus"
 
 	tea "charm.land/bubbletea/v2"
 	gloss "charm.land/lipgloss/v2"
@@ -24,6 +29,15 @@ const (
 	networkMetric
 )
 
+type serviceItem struct {
+	name        string
+	substate    string
+	activeState string
+	loadState   string
+	desc        string
+	jobID       uint32
+}
+
 type model struct {
 	// Screen and layout dimensions
 	width       int
@@ -35,6 +49,17 @@ type model struct {
 
 	// Active tab (0: Performance, 1: Processes, 2: Services)
 	activeTab int
+
+	// Services Tab state
+	serviceSubTab       int // 0: Failed, 1: Running, 2: Dead
+	serviceIndex        int
+	selectedServiceName string
+
+	failedServices  []serviceItem
+	runningServices []serviceItem
+	deadServices    []serviceItem
+
+	serviceLogs []string
 
 	// Small graphs
 	cpu       sparkline.Model
@@ -191,6 +216,88 @@ func (m model) metricBox(
 	)
 }
 
+func fetchServicesList() (failed []serviceItem, running []serviceItem, dead []serviceItem) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	conn, err := dbus.NewSystemConnectionContext(ctx)
+	if err != nil {
+		return nil, nil, nil
+	}
+	defer conn.Close()
+
+	units, err := conn.ListUnitsContext(ctx)
+	if err != nil {
+		return nil, nil, nil
+	}
+
+	for _, u := range units {
+		item := serviceItem{
+			name:        u.Name,
+			substate:    u.SubState,
+			activeState: u.ActiveState,
+			loadState:   u.LoadState,
+			desc:        u.Description,
+			jobID:       u.JobId,
+		}
+		switch u.SubState {
+		case "failed":
+			failed = append(failed, item)
+		case "running":
+			running = append(running, item)
+		case "dead":
+			dead = append(dead, item)
+		}
+	}
+	return failed, running, dead
+}
+
+func fetchJournalLogs(unitName string, maxLines int) []string {
+	if unitName == "" {
+		return []string{"No service selected"}
+	}
+
+	r, err := sdjournal.NewJournal()
+	if err != nil {
+		return []string{fmt.Sprintf("Failed to open journal: %v", err)}
+	}
+	defer r.Close()
+
+	match := fmt.Sprintf("_SYSTEMD_UNIT=%s", unitName)
+	if err := r.AddMatch(match); err != nil {
+		return []string{fmt.Sprintf("Match error: %v", err)}
+	}
+
+	_ = r.SeekTail()
+	_, _ = r.PreviousSkip(uint64(maxLines))
+
+	var logs []string
+	for {
+		c, err := r.Next()
+		if err != nil || c == 0 {
+			break
+		}
+		entry, err := r.GetEntry()
+		if err != nil {
+			continue
+		}
+		timestamp := time.Unix(int64(entry.RealtimeTimestamp/1000000), 0)
+		msg := entry.Fields["MESSAGE"]
+		if msg != "" {
+			logs = append(logs, fmt.Sprintf("%s %s", timestamp.Format("15:04:05"), strings.TrimSpace(msg)))
+		}
+	}
+
+	if len(logs) == 0 {
+		return []string{"No journal logs found for " + unitName}
+	}
+
+	if len(logs) > maxLines {
+		logs = logs[len(logs)-maxLines:]
+	}
+	return logs
+}
+
 func NewModel() model {
 	initW := 100
 	initH := 30
@@ -217,14 +324,42 @@ func NewModel() model {
 		halfDetailH = 1
 	}
 
+	failed, running, dead := fetchServicesList()
+
+	initServiceTab := 0
+	initSelectedName := ""
+	initLogs := []string{}
+
+	if len(failed) > 0 {
+		initServiceTab = 0
+		initSelectedName = failed[0].name
+	} else if len(running) > 0 {
+		initServiceTab = 1
+		initSelectedName = running[0].name
+	} else if len(dead) > 0 {
+		initServiceTab = 2
+		initSelectedName = dead[0].name
+	}
+
+	if initSelectedName != "" {
+		initLogs = fetchJournalLogs(initSelectedName, 12)
+	}
+
 	m := model{
-		width:       initW,
-		height:      initH,
-		navWidth:    initNavW,
-		metricWidth: initMetricW,
-		detailWidth: initDetailW,
-		bodyHeight:  initBodyH,
-		activeTab:   0,
+		width:               initW,
+		height:              initH,
+		navWidth:            initNavW,
+		metricWidth:         initMetricW,
+		detailWidth:         initDetailW,
+		bodyHeight:          initBodyH,
+		activeTab:           0,
+		serviceSubTab:       initServiceTab,
+		serviceIndex:        0,
+		selectedServiceName: initSelectedName,
+		failedServices:      failed,
+		runningServices:     running,
+		deadServices:        dead,
+		serviceLogs:         initLogs,
 
 		// Small graphs
 		cpu: sparkline.New(
@@ -339,13 +474,95 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "up", "k":
-			if m.metricSelected > cpuMetric {
-				m.metricSelected--
+			if m.activeTab == 2 {
+				var currentList []serviceItem
+				switch m.serviceSubTab {
+				case 0:
+					currentList = m.failedServices
+				case 1:
+					currentList = m.runningServices
+				case 2:
+					currentList = m.deadServices
+				}
+				if m.serviceIndex > 0 {
+					m.serviceIndex--
+				}
+				if len(currentList) > 0 && m.serviceIndex < len(currentList) {
+					m.selectedServiceName = currentList[m.serviceIndex].name
+					m.serviceLogs = fetchJournalLogs(m.selectedServiceName, 12)
+				}
+			} else {
+				if m.metricSelected > cpuMetric {
+					m.metricSelected--
+				}
 			}
 
 		case "down", "j":
-			if m.metricSelected < networkMetric {
-				m.metricSelected++
+			if m.activeTab == 2 {
+				var currentList []serviceItem
+				switch m.serviceSubTab {
+				case 0:
+					currentList = m.failedServices
+				case 1:
+					currentList = m.runningServices
+				case 2:
+					currentList = m.deadServices
+				}
+				if m.serviceIndex < len(currentList)-1 {
+					m.serviceIndex++
+				}
+				if len(currentList) > 0 && m.serviceIndex < len(currentList) {
+					m.selectedServiceName = currentList[m.serviceIndex].name
+					m.serviceLogs = fetchJournalLogs(m.selectedServiceName, 12)
+				}
+			} else {
+				if m.metricSelected < networkMetric {
+					m.metricSelected++
+				}
+			}
+
+		case "left", "h":
+			if m.activeTab == 2 {
+				m.serviceSubTab = (m.serviceSubTab - 1 + 3) % 3
+				m.serviceIndex = 0
+				var currentList []serviceItem
+				switch m.serviceSubTab {
+				case 0:
+					currentList = m.failedServices
+				case 1:
+					currentList = m.runningServices
+				case 2:
+					currentList = m.deadServices
+				}
+				if len(currentList) > 0 {
+					m.selectedServiceName = currentList[0].name
+					m.serviceLogs = fetchJournalLogs(m.selectedServiceName, 12)
+				} else {
+					m.selectedServiceName = ""
+					m.serviceLogs = []string{"No services in this tab"}
+				}
+			}
+
+		case "right", "l":
+			if m.activeTab == 2 {
+				m.serviceSubTab = (m.serviceSubTab + 1) % 3
+				m.serviceIndex = 0
+				var currentList []serviceItem
+				switch m.serviceSubTab {
+				case 0:
+					currentList = m.failedServices
+				case 1:
+					currentList = m.runningServices
+				case 2:
+					currentList = m.deadServices
+				}
+				if len(currentList) > 0 {
+					m.selectedServiceName = currentList[0].name
+					m.serviceLogs = fetchJournalLogs(m.selectedServiceName, 12)
+				} else {
+					m.selectedServiceName = ""
+					m.serviceLogs = []string{"No services in this tab"}
+				}
 			}
 
 		case "tab":
@@ -359,47 +576,97 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.activeTab = 2
 			}
 
-		case "1":
-			m.metricSelected = cpuMetric
-		case "2":
-			m.metricSelected = memoryMetric
-		case "3":
-			m.metricSelected = diskMetric
+		case "1", "f":
+			if m.activeTab == 2 {
+				m.serviceSubTab = 0
+				m.serviceIndex = 0
+				if len(m.failedServices) > 0 {
+					m.selectedServiceName = m.failedServices[0].name
+					m.serviceLogs = fetchJournalLogs(m.selectedServiceName, 12)
+				} else {
+					m.selectedServiceName = ""
+					m.serviceLogs = []string{"No failed services"}
+				}
+			} else {
+				m.metricSelected = cpuMetric
+			}
+
+		case "2", "r":
+			if m.activeTab == 2 {
+				m.serviceSubTab = 1
+				m.serviceIndex = 0
+				if len(m.runningServices) > 0 {
+					m.selectedServiceName = m.runningServices[0].name
+					m.serviceLogs = fetchJournalLogs(m.selectedServiceName, 12)
+				} else {
+					m.selectedServiceName = ""
+					m.serviceLogs = []string{"No running services"}
+				}
+			} else {
+				m.metricSelected = memoryMetric
+			}
+
+		case "3", "d":
+			if m.activeTab == 2 {
+				m.serviceSubTab = 2
+				m.serviceIndex = 0
+				if len(m.deadServices) > 0 {
+					m.selectedServiceName = m.deadServices[0].name
+					m.serviceLogs = fetchJournalLogs(m.selectedServiceName, 12)
+				} else {
+					m.selectedServiceName = ""
+					m.serviceLogs = []string{"No dead services"}
+				}
+			} else {
+				m.metricSelected = diskMetric
+			}
+
 		case "4":
 			m.metricSelected = networkMetric
 		}
 
-	// case tea.MouseClickMsg:
-
-	// 	// Check if left sidebar clicked
-	// 	if msg.X >= 0 && msg.X < m.navWidth {
-	// 		if msg.Y >= 3 && msg.Y < 5 {
-	// 			m.activeTab = 0
-	// 		} else if msg.Y >= 5 && msg.Y < 7 {
-	// 			m.activeTab = 1
-	// 		} else if msg.Y >= 7 && msg.Y < 9 {
-	// 			m.activeTab = 2
-	// 		}
-	// 	} else if msg.X >= m.navWidth && msg.X < m.navWidth+m.metricWidth {
-	// 		// Metric box column clicked
-	// 		yInBody := msg.Y - 3
-	// 		cardH := m.bodyHeight / 4
-	// 		if cardH > 0 && yInBody >= 0 {
-	// 			cardIdx := yInBody / cardH
-	// 			switch cardIdx {
-	// 			case 0:
-	// 				m.metricSelected = cpuMetric
-	// 			case 1:
-	// 				m.metricSelected = memoryMetric
-	// 			case 2:
-	// 				m.metricSelected = diskMetric
-	// 			case 3:
-	// 				m.metricSelected = networkMetric
-	// 			}
-	// 		}
-	// 	}
-
 	case tickMsg:
+
+		// ---------------- SERVICES ----------------
+		failed, running, dead := fetchServicesList()
+		m.failedServices = failed
+		m.runningServices = running
+		m.deadServices = dead
+
+		var currentList []serviceItem
+		switch m.serviceSubTab {
+		case 0:
+			currentList = m.failedServices
+		case 1:
+			currentList = m.runningServices
+		case 2:
+			currentList = m.deadServices
+		}
+
+		if len(currentList) > 0 {
+			foundIdx := -1
+			for i, item := range currentList {
+				if item.name == m.selectedServiceName {
+					foundIdx = i
+					break
+				}
+			}
+			if foundIdx >= 0 {
+				m.serviceIndex = foundIdx
+			} else {
+				if m.serviceIndex >= len(currentList) {
+					m.serviceIndex = 0
+				}
+				m.selectedServiceName = currentList[m.serviceIndex].name
+			}
+			if m.activeTab == 2 {
+				m.serviceLogs = fetchJournalLogs(m.selectedServiceName, 12)
+			}
+		} else {
+			m.serviceIndex = 0
+			m.selectedServiceName = ""
+			m.serviceLogs = []string{"No services found"}
+		}
 
 		// ---------------- CPU ----------------
 
@@ -511,7 +778,18 @@ func (m model) View() tea.View {
 
 	// ---------------- TOP HEADER BADGE ----------------
 
-	headerBadge := headerStyle.Render("Perfomace Page")
+	var headerTitle string
+	switch m.activeTab {
+	case 0:
+		headerTitle = "Perfomace Page"
+	case 1:
+		headerTitle = "Processes Page"
+	case 2:
+		headerTitle = "Services Tab"
+	default:
+		headerTitle = "Perfomace Page"
+	}
+	headerBadge := headerStyle.Render(headerTitle)
 
 	// ---------------- 1st COLUMN: LEFT NAV SIDEBAR ----------------
 
@@ -546,175 +824,373 @@ func (m model) View() tea.View {
 		BorderForeground(gloss.Color("240")).
 		Render(navContent)
 
-	// ---------------- 2nd COLUMN: METRIC SELECTION BOX ----------------
+	var mainBody string
 
-	cpuBox := m.metricBox(
-		"CPU",
-		m.cpu.View(),
-		cpuMetric,
-	)
+	if m.activeTab == 2 {
+		// ---------------- SERVICES TAB LAYOUT ----------------
 
-	memoryBox := m.metricBox(
-		"Memory",
-		m.memory.View(),
-		memoryMetric,
-	)
+		failedLabel := fmt.Sprintf("Failed(%d)", len(m.failedServices))
+		runningLabel := fmt.Sprintf("Running(%d)", len(m.runningServices))
+		deadLabel := fmt.Sprintf("Dead(%d)", len(m.deadServices))
 
-	diskTitle := "Disk"
-	diskGraph := gloss.JoinVertical(
-		gloss.Left,
-		m.diskRead.View(),
-		m.diskWrite.View(),
-	)
+		var failedTab, runningTab, deadTab string
+		if m.serviceSubTab == 0 {
+			failedTab = serviceTabFailedActiveStyle.Render(failedLabel)
+		} else {
+			failedTab = serviceTabInactiveStyle.Render(failedLabel)
+		}
 
-	diskBox := m.metricBox(
-		diskTitle,
-		diskGraph,
-		diskMetric,
-	)
+		if m.serviceSubTab == 1 {
+			runningTab = serviceTabRunningActiveStyle.Render(runningLabel)
+		} else {
+			runningTab = serviceTabInactiveStyle.Render(runningLabel)
+		}
 
-	netTitle := "Net"
-	networkGraph := gloss.JoinVertical(
-		gloss.Left,
-		m.netRX.View(),
-		m.netTX.View(),
-	)
+		if m.serviceSubTab == 2 {
+			deadTab = serviceTabDeadActiveStyle.Render(deadLabel)
+		} else {
+			deadTab = serviceTabInactiveStyle.Render(deadLabel)
+		}
 
-	networkBox := m.metricBox(
-		netTitle,
-		networkGraph,
-		networkMetric,
-	)
+		subTabsHeader := gloss.JoinHorizontal(gloss.Center, failedTab, "   ", runningTab, "   ", deadTab)
 
-	metricCards := gloss.JoinVertical(
-		gloss.Left,
-		cpuBox,
-		memoryBox,
-		diskBox,
-		networkBox,
-	)
+		var currentList []serviceItem
+		switch m.serviceSubTab {
+		case 0:
+			currentList = m.failedServices
+		case 1:
+			currentList = m.runningServices
+		case 2:
+			currentList = m.deadServices
+		}
 
-	metricSidebar := gloss.NewStyle().
-		Width(m.metricWidth).
-		Height(m.bodyHeight).
-		BorderStyle(gloss.NormalBorder()).
-		BorderForeground(gloss.Color("240")).
-		Render(metricCards)
+		servicesContentWidth := m.width - m.navWidth - 4
+		if servicesContentWidth < 40 {
+			servicesContentWidth = 40
+		}
 
-	// ---------------- 3rd COLUMN: RIGHT DETAIL PANEL ----------------
+		listWidth := 38
+		rightWidth := servicesContentWidth - listWidth - 2
+		if rightWidth < 20 {
+			rightWidth = 20
+		}
 
-	graphBoxHeight := m.bodyHeight / 2
-	if graphBoxHeight < 5 {
-		graphBoxHeight = 5
-	}
+		contentHeight := m.bodyHeight - 3
+		if contentHeight < 10 {
+			contentHeight = 10
+		}
 
-	infoBoxHeight := m.bodyHeight - graphBoxHeight
-	if infoBoxHeight < 4 {
-		infoBoxHeight = 4
-	}
+		var listItems []string
+		if len(currentList) == 0 {
+			listItems = append(listItems, serviceItemInactiveStyle.Render("  No services found"))
+		} else {
+			maxItems := contentHeight - 2
+			if maxItems < 1 {
+				maxItems = 1
+			}
 
-	var detailGraph string
-	var title string
-	var textInfo string
+			startIdx := 0
+			if m.serviceIndex >= maxItems {
+				startIdx = m.serviceIndex - maxItems + 1
+			}
+			endIdx := startIdx + maxItems
+			if endIdx > len(currentList) {
+				endIdx = len(currentList)
+			}
 
-	switch m.metricSelected {
+			for i := startIdx; i < endIdx; i++ {
+				item := currentList[i]
+				bullet := "●"
+				var bulletStyle gloss.Style
+				switch item.activeState {
+				case "failed":
+					bulletStyle = serviceStatusFailedStyle
+				case "active":
+					bulletStyle = serviceStatusRunningStyle
+				default:
+					bulletStyle = serviceStatusDeadStyle
+				}
+				coloredBullet := bulletStyle.Render(bullet)
 
-	case cpuMetric:
-		title = "CPU Performance"
-		detailGraph = m.cpuDetail.View()
-		colW := 22
-		r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Utilization"), infoLabelStyle.Width(colW).Render("Status"), infoLabelStyle.Width(colW).Render("Fetch Rate"))
-		r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f%%", m.cpuPerc)), infoValueStyle.Width(colW).Render("Active"), infoValueStyle.Width(colW).Render(fetchFrequency.String()))
-		r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Architecture"), infoLabelStyle.Width(colW).Render("Metrics Source"), infoLabelStyle.Width(colW).Render("System Load"))
-		r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render("System CPU"), infoValueStyle.Width(colW).Render("/proc/stat"), infoValueStyle.Width(colW).Render("Normal"))
-		textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
+				maxNameLen := listWidth - 14
+				name := item.name
+				if maxNameLen > 5 && len(name) > maxNameLen {
+					name = name[:maxNameLen-2] + ".."
+				}
 
-	case memoryMetric:
-		title = "Memory Utilization"
-		detailGraph = m.memoryDetail.View()
-		colW := 22
-		r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Utilization"), infoLabelStyle.Width(colW).Render("Total Memory"), infoLabelStyle.Width(colW).Render("Used Memory"))
-		r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f%%", m.memoryPerc)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memTotal)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memUsed)))
-		r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Available"), infoLabelStyle.Width(colW).Render("Free Memory"), infoLabelStyle.Width(colW).Render("Cached"))
-		r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memAvailable)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memFree)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memCached)))
-		textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
+				lineText := fmt.Sprintf("%s %-16s %s", coloredBullet, name, item.substate)
+				if i == m.serviceIndex {
+					listItems = append(listItems, serviceItemActiveStyle.Render("> "+lineText))
+				} else {
+					listItems = append(listItems, serviceItemInactiveStyle.Render("  "+lineText))
+				}
+			}
+		}
 
-	case diskMetric:
-		title = fmt.Sprintf(
-			"Disk I/O Activity    %s    %s",
-			diskReadStyle.Render("■ Read IOPS"),
-			diskWriteStyle.Render("■ Write IOPS"),
-		)
-		detailGraph = gloss.JoinVertical(
+		serviceListBox := gloss.NewStyle().
+			Width(listWidth).
+			Height(contentHeight).
+			BorderStyle(gloss.NormalBorder()).
+			BorderForeground(gloss.Color("240")).
+			Padding(0, 1).
+			Render(gloss.JoinVertical(gloss.Left, listItems...))
+
+		var currentSelected *serviceItem
+		if len(currentList) > 0 && m.serviceIndex >= 0 && m.serviceIndex < len(currentList) {
+			currentSelected = &currentList[m.serviceIndex]
+		}
+
+		var metaContent string
+		if currentSelected != nil {
+			metaContent = fmt.Sprintf(
+				"%s\n%s %s\n%s %s (%s)\n%s %s\n%s %d",
+				infoTitleStyle.Render("SERVICE: "+currentSelected.name),
+				infoLabelStyle.Width(10).Render("Loaded:"), infoValueStyle.Render(currentSelected.loadState),
+				infoLabelStyle.Width(10).Render("State:"), infoValueStyle.Render(currentSelected.activeState), currentSelected.substate,
+				infoLabelStyle.Width(10).Render("Desc:"), infoValueStyle.Render(currentSelected.desc),
+				infoLabelStyle.Width(10).Render("Job:"), currentSelected.jobID,
+			)
+		} else {
+			metaContent = infoTitleStyle.Render("SERVICE: None")
+		}
+
+		metaBoxHeight := 7
+		metaBox := gloss.NewStyle().
+			Width(rightWidth).
+			Height(metaBoxHeight).
+			BorderStyle(gloss.NormalBorder()).
+			BorderForeground(gloss.Color("240")).
+			Padding(0, 1).
+			Render(metaContent)
+
+		logsBoxHeight := contentHeight - metaBoxHeight - 1
+		if logsBoxHeight < 4 {
+			logsBoxHeight = 4
+		}
+
+		unitName := "none"
+		if currentSelected != nil {
+			unitName = currentSelected.name
+		}
+
+		logHeader := logHeaderStyle.Render(fmt.Sprintf("LOGS (journalctl -u %s -n 12)", unitName))
+
+		var logLines []string
+		logLines = append(logLines, logHeader)
+		if len(m.serviceLogs) == 0 {
+			logLines = append(logLines, logEntryStyle.Render("(No journal logs found for this service)"))
+		} else {
+			maxLogLines := logsBoxHeight - 3
+			if maxLogLines < 1 {
+				maxLogLines = 1
+			}
+			displayLogs := m.serviceLogs
+			if len(displayLogs) > maxLogLines {
+				displayLogs = displayLogs[len(displayLogs)-maxLogLines:]
+			}
+			for _, l := range displayLogs {
+				if len(l) > rightWidth-4 && rightWidth > 6 {
+					l = l[:rightWidth-6] + ".."
+				}
+				logLines = append(logLines, logEntryStyle.Render(l))
+			}
+		}
+
+		logsBox := gloss.NewStyle().
+			Width(rightWidth).
+			Height(logsBoxHeight).
+			BorderStyle(gloss.NormalBorder()).
+			BorderForeground(gloss.Color("240")).
+			Padding(0, 1).
+			Render(gloss.JoinVertical(gloss.Left, logLines...))
+
+		rightDetailCol := gloss.JoinVertical(gloss.Left, metaBox, logsBox)
+		servicesBody := gloss.JoinHorizontal(gloss.Top, serviceListBox, rightDetailCol)
+
+		servicesFullPanel := gloss.JoinVertical(
 			gloss.Left,
-			m.diskReadDetail.View(),
-			m.diskWriteDetail.View(),
+			subTabsHeader,
+			"",
+			servicesBody,
 		)
-		totalIOPS := m.diskReadIOPS + m.diskWriteIOPS
-		colW := 22
-		r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Read IOPS"), infoLabelStyle.Width(colW).Render("Write IOPS"), infoLabelStyle.Width(colW).Render("Total IOPS"))
-		r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f", m.diskReadIOPS)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f", m.diskWriteIOPS)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f", totalIOPS)))
-		r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Storage Status"), infoLabelStyle.Width(colW).Render("Metrics Source"), infoLabelStyle.Width(colW).Render("Activity"))
-		r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render("Healthy"), infoValueStyle.Width(colW).Render("/proc/diskstats"), infoValueStyle.Width(colW).Render("Active"))
-		textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
 
-	case networkMetric:
-		title = fmt.Sprintf(
-			"Network Traffic    %s    %s",
-			netRXStyle.Render("■ RX Received"),
-			netTXStyle.Render("■ TX Transferred"),
+		mainBody = gloss.JoinHorizontal(
+			gloss.Top,
+			navSidebar,
+			servicesFullPanel,
 		)
-		detailGraph = gloss.JoinVertical(
+
+	} else {
+		// ---------------- 2nd COLUMN: METRIC SELECTION BOX ----------------
+
+		cpuBox := m.metricBox(
+			"CPU",
+			m.cpu.View(),
+			cpuMetric,
+		)
+
+		memoryBox := m.metricBox(
+			"Memory",
+			m.memory.View(),
+			memoryMetric,
+		)
+
+		diskTitle := "Disk"
+		diskGraph := gloss.JoinVertical(
 			gloss.Left,
-			m.netRXDetail.View(),
-			m.netTXDetail.View(),
+			m.diskRead.View(),
+			m.diskWrite.View(),
 		)
-		totalPkts := m.netRXPackets + m.netTXPackets
-		colW := 22
-		r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("RX Packets"), infoLabelStyle.Width(colW).Render("TX Packets"), infoLabelStyle.Width(colW).Render("Total Packets"))
-		r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f pkts/s", m.netRXPackets)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f pkts/s", m.netTXPackets)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f pkts/s", totalPkts)))
-		r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Interface"), infoLabelStyle.Width(colW).Render("Link Status"), infoLabelStyle.Width(colW).Render("Flow Direction"))
-		r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render("All interfaces"), infoValueStyle.Width(colW).Render("Connected"), infoValueStyle.Width(colW).Render("Bi-directional"))
-		textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
+
+		diskBox := m.metricBox(
+			diskTitle,
+			diskGraph,
+			diskMetric,
+		)
+
+		netTitle := "Net"
+		networkGraph := gloss.JoinVertical(
+			gloss.Left,
+			m.netRX.View(),
+			m.netTX.View(),
+		)
+
+		networkBox := m.metricBox(
+			netTitle,
+			networkGraph,
+			networkMetric,
+		)
+
+		metricCards := gloss.JoinVertical(
+			gloss.Left,
+			cpuBox,
+			memoryBox,
+			diskBox,
+			networkBox,
+		)
+
+		metricSidebar := gloss.NewStyle().
+			Width(m.metricWidth).
+			Height(m.bodyHeight).
+			BorderStyle(gloss.NormalBorder()).
+			BorderForeground(gloss.Color("240")).
+			Render(metricCards)
+
+		// ---------------- 3rd COLUMN: RIGHT DETAIL PANEL ----------------
+
+		graphBoxHeight := m.bodyHeight / 2
+		if graphBoxHeight < 5 {
+			graphBoxHeight = 5
+		}
+
+		infoBoxHeight := m.bodyHeight - graphBoxHeight
+		if infoBoxHeight < 4 {
+			infoBoxHeight = 4
+		}
+
+		var detailGraph string
+		var title string
+		var textInfo string
+
+		switch m.metricSelected {
+
+		case cpuMetric:
+			title = "CPU Performance"
+			detailGraph = m.cpuDetail.View()
+			colW := 22
+			r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Utilization"), infoLabelStyle.Width(colW).Render("Status"), infoLabelStyle.Width(colW).Render("Fetch Rate"))
+			r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f%%", m.cpuPerc)), infoValueStyle.Width(colW).Render("Active"), infoValueStyle.Width(colW).Render(fetchFrequency.String()))
+			r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Architecture"), infoLabelStyle.Width(colW).Render("Metrics Source"), infoLabelStyle.Width(colW).Render("System Load"))
+			r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render("System CPU"), infoValueStyle.Width(colW).Render("/proc/stat"), infoValueStyle.Width(colW).Render("Normal"))
+			textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
+
+		case memoryMetric:
+			title = "Memory Utilization"
+			detailGraph = m.memoryDetail.View()
+			colW := 22
+			r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Utilization"), infoLabelStyle.Width(colW).Render("Total Memory"), infoLabelStyle.Width(colW).Render("Used Memory"))
+			r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f%%", m.memoryPerc)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memTotal)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memUsed)))
+			r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Available"), infoLabelStyle.Width(colW).Render("Free Memory"), infoLabelStyle.Width(colW).Render("Cached"))
+			r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memAvailable)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memFree)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.2f GB", m.memCached)))
+			textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
+
+		case diskMetric:
+			title = fmt.Sprintf(
+				"Disk I/O Activity    %s    %s",
+				diskReadStyle.Render("■ Read IOPS"),
+				diskWriteStyle.Render("■ Write IOPS"),
+			)
+			detailGraph = gloss.JoinVertical(
+				gloss.Left,
+				m.diskReadDetail.View(),
+				m.diskWriteDetail.View(),
+			)
+			totalIOPS := m.diskReadIOPS + m.diskWriteIOPS
+			colW := 22
+			r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Read IOPS"), infoLabelStyle.Width(colW).Render("Write IOPS"), infoLabelStyle.Width(colW).Render("Total IOPS"))
+			r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f", m.diskReadIOPS)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f", m.diskWriteIOPS)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f", totalIOPS)))
+			r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Storage Status"), infoLabelStyle.Width(colW).Render("Metrics Source"), infoLabelStyle.Width(colW).Render("Activity"))
+			r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render("Healthy"), infoValueStyle.Width(colW).Render("/proc/diskstats"), infoValueStyle.Width(colW).Render("Active"))
+			textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
+
+		case networkMetric:
+			title = fmt.Sprintf(
+				"Network Traffic    %s    %s",
+				netRXStyle.Render("■ RX Received"),
+				netTXStyle.Render("■ TX Transferred"),
+			)
+			detailGraph = gloss.JoinVertical(
+				gloss.Left,
+				m.netRXDetail.View(),
+				m.netTXDetail.View(),
+			)
+			totalPkts := m.netRXPackets + m.netTXPackets
+			colW := 22
+			r1Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("RX Packets"), infoLabelStyle.Width(colW).Render("TX Packets"), infoLabelStyle.Width(colW).Render("Total Packets"))
+			r1Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f pkts/s", m.netRXPackets)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f pkts/s", m.netTXPackets)), infoValueStyle.Width(colW).Render(fmt.Sprintf("%.0f pkts/s", totalPkts)))
+			r2Labels := fmt.Sprintf("%s%s%s", infoLabelStyle.Width(colW).Render("Interface"), infoLabelStyle.Width(colW).Render("Link Status"), infoLabelStyle.Width(colW).Render("Flow Direction"))
+			r2Values := fmt.Sprintf("%s%s%s", infoValueStyle.Width(colW).Render("All interfaces"), infoValueStyle.Width(colW).Render("Connected"), infoValueStyle.Width(colW).Render("Bi-directional"))
+			textInfo = fmt.Sprintf("%s\n%s\n\n%s\n%s", r1Labels, r1Values, r2Labels, r2Values)
+		}
+
+		// Graph detail box covering top half (~50%)
+		detailGraphBox := gloss.NewStyle().
+			Width(m.detailWidth).
+			Height(graphBoxHeight).
+			BorderStyle(gloss.NormalBorder()).
+			BorderForeground(gloss.Color("240")).
+			Render(
+				fmt.Sprintf(
+					"%s\n%s",
+					infoTitleStyle.Render(title),
+					detailGraph,
+				),
+			)
+
+		// Information text box below graph
+		detailInfoBox := gloss.NewStyle().
+			Width(m.detailWidth).
+			Height(infoBoxHeight).
+			BorderStyle(gloss.NormalBorder()).
+			BorderForeground(gloss.Color("240")).
+			Padding(1, 2).
+			Render(textInfo)
+
+		detailPanel := gloss.JoinVertical(
+			gloss.Left,
+			detailGraphBox,
+			detailInfoBox,
+		)
+
+		// ---------------- FINAL FULL SCREEN LAYOUT ----------------
+
+		mainBody = gloss.JoinHorizontal(
+			gloss.Top,
+			navSidebar,
+			metricSidebar,
+			detailPanel,
+		)
 	}
-
-	// Graph detail box covering top half (~50%)
-	detailGraphBox := gloss.NewStyle().
-		Width(m.detailWidth).
-		Height(graphBoxHeight).
-		BorderStyle(gloss.NormalBorder()).
-		BorderForeground(gloss.Color("240")).
-		Render(
-			fmt.Sprintf(
-				"%s\n%s",
-				infoTitleStyle.Render(title),
-				detailGraph,
-			),
-		)
-
-	// Information text box below graph
-	detailInfoBox := gloss.NewStyle().
-		Width(m.detailWidth).
-		Height(infoBoxHeight).
-		BorderStyle(gloss.NormalBorder()).
-		BorderForeground(gloss.Color("240")).
-		Padding(1, 2).
-		Render(textInfo)
-
-	detailPanel := gloss.JoinVertical(
-		gloss.Left,
-		detailGraphBox,
-		detailInfoBox,
-	)
-
-	// ---------------- FINAL FULL SCREEN LAYOUT ----------------
-
-	mainBody := gloss.JoinHorizontal(
-		gloss.Top,
-		navSidebar,
-		metricSidebar,
-		detailPanel,
-	)
 
 	fullPage := gloss.JoinVertical(
 		gloss.Left,

@@ -60,3 +60,50 @@ var infoValueStyle = gloss.NewStyle().
 	Foreground(gloss.Color("15")).
 	Bold(true)
 
+// Services Tab Styles
+var serviceTabFailedActiveStyle = gloss.NewStyle().
+	Background(gloss.Color("203")).
+	Foreground(gloss.Color("0")).
+	Bold(true).
+	Padding(0, 2)
+
+var serviceTabRunningActiveStyle = gloss.NewStyle().
+	Background(gloss.Color("2")).
+	Foreground(gloss.Color("0")).
+	Bold(true).
+	Padding(0, 2)
+
+var serviceTabDeadActiveStyle = gloss.NewStyle().
+	Background(gloss.Color("242")).
+	Foreground(gloss.Color("15")).
+	Bold(true).
+	Padding(0, 2)
+
+var serviceTabInactiveStyle = gloss.NewStyle().
+	Foreground(gloss.Color("250")).
+	Padding(0, 2)
+
+var serviceStatusFailedStyle = gloss.NewStyle().
+	Foreground(gloss.Color("1")) // Red
+
+var serviceStatusRunningStyle = gloss.NewStyle().
+	Foreground(gloss.Color("2")) // Green
+
+var serviceStatusDeadStyle = gloss.NewStyle().
+	Foreground(gloss.Color("242")) // Gray
+
+var serviceItemActiveStyle = gloss.NewStyle().
+	Foreground(gloss.Color("205")).
+	Bold(true)
+
+var serviceItemInactiveStyle = gloss.NewStyle().
+	Foreground(gloss.Color("252"))
+
+var logHeaderStyle = gloss.NewStyle().
+	Foreground(gloss.Color("212")).
+	Bold(true)
+
+var logEntryStyle = gloss.NewStyle().
+	Foreground(gloss.Color("252"))
+
+
